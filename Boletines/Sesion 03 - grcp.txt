@@ -1,0 +1,39 @@
+
+3
+
+Automatic Zoom
+Sistemas Distribuidos
+Proyecto – Intro al proyecto de GRPC
+Diego Sevilla Ruiz
+DITEC
+Facultad de Informática
+Murcia, 2026
+Diego Sevilla Ruiz (DITEC Facultad de Informática) Sistemas Distribuidos Murcia, 2026 1 / 19
+Índice
+1 Introducción al proyecto GRPC
+2 Qué hacer a partir de aquí
+Diego Sevilla Ruiz (DITEC Facultad de Informática) Sistemas Distribuidos Murcia, 2026 2 / 19
+Repositorio de ejemplo GRPC
+En el directorio del repositorio ejemplos/backend/grpc está el
+proyecto es.um.sisdist.grpc-test1
+Funciona completamente con Maven, y también se puede usar
+Eclipse, pero hay pequeñas incompatibilidades que se mostrará
+cómo superar
+Se mostrará ambas configuraciones
+El repositorio contiene dos ficheros .proto, en el directorio
+src/main/proto, helloworld.proto y collage.proto
+Para cada uno de ellos hay su correspondiente servidor y cliente,
+que se pueden tomar de ejemplo
+Diego Sevilla Ruiz (DITEC Facultad de Informática) Sistemas Distribuidos Murcia, 2026 3 / 19
+Uso del proyecto desde Eclipse
+Hay que usar un Eclipse que tenga instalado maven (Eclipse for
+Java EE development, por ejemplo)
+Al importar el proyecto, estará lleno de errores, ya que los ficheros
+generados automáticamente por el compilador de gRPC no están
+todavía generados
+Para generarlos, se puede usar el menú de Eclipse
+Desde cualquier parte del proyecto, botón derecho →Run As... →
+Maven build...
+Diego Sevilla Ruiz (DITEC Facultad de Informática) Sistemas Distribuidos Murcia, 2026 4 / 19
+Uso del proyecto desde Eclipse II
+Diego Sevilla Ruiz (DITEC Facultad de Informática) Sistemas Distribuidos Murcia, 2026 5 / 19

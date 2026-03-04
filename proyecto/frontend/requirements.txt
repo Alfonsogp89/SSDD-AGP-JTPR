@@ -1,0 +1,10 @@
+flask>=3.0.1
+flask-login>=0.6.3
+flask-WTF>=1.2.1
+requests
+email_validator>=2.1
+pyjwt
+
+selenium>=4.8.0
+webdriver-manager>=4.0.0
+Flask-SQLAlchemy>=3.0.0

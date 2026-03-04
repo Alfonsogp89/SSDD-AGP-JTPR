@@ -1,0 +1,148 @@
+Proyecto Chat (LlamaChat)
+Sistemas Distribuidos
+Diego Sevilla Ruiz
+Murcia, 2026
+
+Índice
+1 Introducción
+2 Especificación del proyecto
+   Frontend
+   Backend
+   Seguridad y Autenticación
+   Monitorización
+   Nivel de Datos
+   Cliente de prueba
+   Testing End-to-End
+
+1. Introducción
+Estas transparencias describen el proyecto de prácticas de Sistemas Distribuidos.
+Constará del desarrollo de una aplicación distribuida formada por un conjunto de servicios:
+1. gestión de usuarios y autenticación (JWT),
+2. estadísticas de acceso y monitorización (Prometheus),
+3. servicio de sesión de prompt LlamaChat,
+4. servicio de log de sesiones de prompt,
+5. pruebas End-to-End (E2E) automáticas.
+Se hará uso de las tecnologías REST, gRPC, Kafka, Docker, Prometheus y Selenium.
+
+2. Especificación del proyecto
+Objetivo
+El objetivo del proyecto es escribir una aplicación distribuida compuesta de varios contenedores Docker que ofrecen la funcionalidad de gestionar usuarios, estadísticas de acceso y uso del servicio, sesiones de prompt, log de sesiones y validación automática del interfaz (E2E).
+Los servicios se desarrollarán con REST y con gRPC.
+Cada servicio se instalará en un contenedor independiente.
+Se tendrán que diseñar los APIs de los servicios en gRPC y los servicios REST que corresponda.
+La seguridad es fundamental: se usará JWT (JSON Web Tokens) para todas las autenticaciones entre servicios y clientes.
+
+Capas de la aplicación
+La aplicación se dividirá en tres capas:
+Frontend (F): interfaz web, tecnologías como Bootstrap, servidor en PHP/Node/Flask.
+Backend (B): servidores de apoyo al frontend y servicios REST/gRPC en Java.
+Datos (D): bases de datos para almacenar usuarios, contraseñas, conversaciones, estadísticas.
+
+Arquitectura de la aplicación
+(diagrama)
+
+Frontend
+Debe incluir:
+1. Registro de usuarios
+2. Login (obteniendo JWT)
+3. Interfaz para iniciar sesión de prompt, mantener conversación y terminarla
+4. Interfaz de administración de logs (mostrar y eliminar)
+5. Ver estadísticas de acceso (monitorización)
+Se valora funcionalidad por encima de estética.
+
+Backend
+Incluye:
+1. Servidores de apoyo al frontend
+2. Servidores REST, gRPC y Kafka internos
+3. Servidor externo de conversación
+4. Cliente de prueba (TestClient)
+5. Sistema de monitorización (Prometheus)
+
+Servicios Internos Java REST
+Servicios REST internos en Java que ofrecen información al frontend.
+Protegidos con JWT.
+URLs como /u/ID para obtener información de usuario.
+Cada usuario almacena: ID, nombre, contraseña (hash), conversaciones, estadísticas.
+
+Conversaciones:
+GET /u/ID/dialogue → lista de conversaciones
+POST /u/ID/dialogue → crea conversación
+PUT /u/ID/dialogue/DName → crea/actualiza conversación
+GET /u/ID/dialogue/DName → obtiene datos de conversación
+
+Estructura de conversación:
+{
+  "dialogue_id": "test",
+  "status": "READY" | "BUSY" | "FINISHED",
+  "dialogue": [
+    { "prompt": "...", "answer": "...", "timestamp": ... }
+  ],
+  "next": "/u/ID/dialogue/test/next/...",
+  "end": "/u/ID/dialogue/test/end"
+}
+
+POST a “next”:
+- Si estado es BUSY o FINISHED → 204 No content
+- Si estado es READY → 201 Accepted y se llama al servicio gRPC
+
+Servicio interno gRPC Java
+Servicio interno que envía prompts al servicio Chat.
+Debe validar JWT en metadatos.
+Asíncrono.
+Usa el servicio Chat proporcionado.
+
+Servicio Chat proporcionado
+Servicio REST en Python+Flask con modelo Llama 2.
+POST /prompt:
+- Si no está inicializado → 102 Processing
+- Si está listo → 202 Accepted + Location con URL de respuesta
+/healthcheck para comprobar estado.
+Contenedores: dsevilla/ssdd-llamachat:1.0 y dummy.
+
+Servicio externo REST de prompt
+Expone puerto 8180.
+Usa el servicio gRPC interno.
+Sirve todas las URLs de prompt.
+Requiere JWT válido.
+No está incluido en el ejemplo: hay que crearlo.
+
+Seguridad y Autenticación
+Todo basado en JWT.
+Stateless.
+Flujo:
+1. Cliente envía credenciales
+2. Backend valida y genera JWT
+3. Cliente almacena token
+4. Cliente envía Authorization: Bearer <token>
+5. Backend valida firma y expiración
+
+Monitorización con Prometheus
+Contenedor Prometheus en docker-compose.
+Frontend y backend deben exponer /metrics.
+Prometheus hace pull periódico.
+Backend: métricas JVM y HTTP.
+Frontend: tiempos de respuesta y códigos.
+Se valora métrica personalizada.
+
+Nivel de Datos
+Bases de datos SQL o NoSQL.
+Independencia mediante patrón DAO.
+Almacena usuarios, contraseñas hash, conversaciones, estadísticas.
+
+Cliente de prueba
+Debe:
+1. Registrar usuario
+2. Crear conversación, enviar prompts, eliminar conversación
+3. Mostrar conversación
+Debe autenticarse y usar JWT.
+
+Testing End-to-End (Selenium)
+Validación automática del frontend.
+Flujo:
+1. Abrir navegador y cargar frontend
+2. Login
+3. Ir a pantalla de chat
+4. Enviar prompt
+5. Esperar respuesta (Explicit Wait)
+6. Validar que no está vacía
+Debe ejecutarse contra entorno Docker.

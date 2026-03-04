@@ -1,0 +1,49 @@
+services:
+
+  ssdd-frontend:
+    image: dsevilla/ssdd-frontend:1.0
+    ports:
+      - 5010:5010
+    env_file: sql.env
+    environment:
+      - FLASK_APP=app/app.py
+      - FLASK_DEBUG=true
+      - PORT=5010
+    depends_on:
+      db-mysql:
+        condition: service_healthy
+
+  ssdd-llamachat:
+    image: dsevilla/ssdd-llamachat:1.0
+    ports:
+      - 5020:5020
+
+  db-mysql:
+    build: db-mysql/.
+    ports:
+      - 3306
+    env_file: sql.env
+    healthcheck:
+      test: echo 'SELECT 1' | mysql -h db-mysql -u root -p$$MYSQL_ROOT_PASSWORD $$MYSQL_DATABASE
+      interval: 10s
+      timeout: 10s
+      retries: 7
+      start_period: 20s
+
+  backend-rest:
+    image: dsevilla/ssdd-backend-rest:1.0
+    ports:
+      - 8080:8080
+    env_file: sql.env
+    depends_on:
+      db-mysql:
+        condition: service_healthy
+
+  backend-grpc:
+    image: dsevilla/ssdd-backend-grpc:1.0
+    ports:
+      - 50051
+    env_file: sql.env
+    depends_on:
+      db-mysql:
+        condition: service_healthy

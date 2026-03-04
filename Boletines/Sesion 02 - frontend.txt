@@ -1,0 +1,182 @@
+Sistemas Distribuidos
+Proyecto– Diseño del Frontend
+Diego Sevilla Ruiz
+DITEC
+Facultad de Informática
+Murcia, 2026
+
+Índice
+1 Introducción al repositorio de ejemplo
+2 Ejemplo de Frontend con Python+Flask
+3 Autenticación con JWT
+4 Qué hacer a partir de aquí
+5 Referencias
+
+Repositorio de ejemplo
+La asignatura tiene un repositorio de ejemplo para el desarrollo del proyecto. Se puede descargar con git desde esta página:
+https://github.com/dsevilla/ssdd
+Se usará la rama 25-26
+Subdirectorio proyecto, dentro frontend, backend, datos, etc.
+Hay ejemplos en el subdirectorio ejemplos
+
+Desarrollo del frontend
+El frontend tiene que incluir las pantallas de login, registro de usuarios y de uso de la funcionalidad del servicio web
+Para la práctica, no hace falta que sea perfecto
+Se conectará por HTTPS, por lo que se puede suponer que la conexión es segura
+Aún así, tiene que permitir y mantener el login cuando se produzca, comprobarlo con la base de datos, de usuarios, etc.
+
+Ejemplo con Flask
+Flask es un framework Python que proporciona una forma sencilla de declarar un frontend web:
+https://flask.palletsprojects.com/en/3.0.x
+junto con otros paquetes permite hacer login de usuarios y mantener la sesión
+Lo instalaremos con pip, paquete flask, con pip:
+pip install -r requirements.txt
+(está incluido en las reglas para construir el contenedor de desarrollo, en el Dockerfile
+https://github.com/dsevilla/ssdd/blob/25-26/ejemplos/frontend/flask-example/Dockerfile)
+
+Contenedor de desarrollo
+El contenedor de desarrollo lanza el fichero app.py donde se especifica la aplicación
+La separación en ficheros que se ha hecho actualmente puede hacerse de forma diferente
+El fichero docker-compose.yml lleva las instrucciones para lanzar el contenedor y dejarlo en modo recarga cuando algún fichero se modifica:
+https://github.com/dsevilla/ssdd/blob/25-26/ejemplos/frontend/flask-example/docker-compose.yml
+
+Contenedor de desarrollo II
+para lanzarlo, se hace con docker-compose:
+docker-compose up
+La aplicación se puede acceder a través del puerto 5010:
+http://localhost
+El directorio actual se monta en el directorio /flask-example dentro del contenedor
+OJO: En la sala de prácticas a veces falla docker y hay que reiniciar el servicio ejecutando:
+$ sudo /etc/init.d/docker restart
+
+app/app.py
+En el directorio app está el fichero app.py
+Incluye las definiciones necesarias y la variable app, la aplicación
+A partir de ese momento, se pueden ir añadiendo rutas de la aplicación con @app.route(ruta)
+En la documentación aparecen las posibilidades, pero las funciones más importantes son:
+render_template(): genera un resultado de un template (ejemplo de página con variables) de los que existen en el directorio templates (se verá después)
+redirect(): redirecciona a otra página. Se puede usar la función url_for(), que da la URL de una función definida con @app.route
+Aunque en el ejemplo no se usa, flask ofrece también el objeto (un diccionario de Python) session
+from flask import session
+
+app/app.py II
+Se puede usar como un diccionario para almacenar datos de sesión:
+session["login_id"] = "xxx"
+...
+def logout():
+    ...
+    session.pop("login_id")
+
+Patrones/Templates
+Flask utiliza los templates de Jinja2, otro paquete de Python
+https://jinja.palletsprojects.com/en/3.0.x
+Los patrones permiten hacer bucles, sustituir valores de variables, ejecutar funciones de Python, heredar de otros patrones, definir bloques, etc.
+En el proyecto están en el subdirectorio templates
+Se generan con la función render_template()
+En el ejemplo hay una plantilla base, base.html, y las demás heredan de ella, redefiniendo los bloques que se definen
+La sustitución de variables y llamada a funciones se hace con la construcción doble llaves: {{ }}
+Las funciones de iteración, herencia, bloques, etc, se construyen con {% %}:
+{% block <nombre> %}
+{% endblock %}
+
+Login
+El login se consigue con el paquete flask_login
+Define ciertas funciones, como login_user, para hacer login de un usuario, @login_required, para poder acceder a una ruta sólo cuando el usuario está autenticado
+Se usa el objeto LoginManager, y hay que llamar a init_app con el objeto aplicación
+También define un mixin, UserMixin, que hay que mezclar con la definición de nuestro usuario, para mantener los datos del login
+Está en el fichero app/models.py, donde se pueden añadir los datos necesarios y veremos cómo conectarlo con la base de datos
+
+Formularios
+Flask, junto con otros paquetes, también da soporte para formularios en las páginas web
+Para eso se utilizan los paquetes flask_wtf y wtforms
+Se ofrece el mixin especial FlaskForm, del que todos los formularios heredan
+En el fichero app/forms.py hay un ejemplo para el login
+La clase LoginForm tiene tres campos, que serán los que aparecerán en el formulario
+A ellos se le asocian validadores (DataRequired, Email, etc.) del paquete wtforms.validators
+Como se puede ver en el template de login, se pueden usar construcciones para seguridad:
+Dentro del formulario se puede usar form.hidden_tag() para incluir los campos ocultos del formulario
+
+Formularios II
+O también form.csrf_token() para introducir una seguridad anti-CSRF
+
+Bootstrap
+Bootstrap es un framework CSS que permite de forma sencilla organizar el contenido de páginas web
+Existen muchos tutoriales por la web
+Se puede descargar de http://getbootstrap.com
+El ejemplo de frontend ya descarga Bootstrap, por lo que se puede utilizar
+El concepto fundamental es el de contenedor, que sirve para separar contenido horizontal en la página y el grid, que define un enrejado de 12 columnas
+La documentación principal básica para estos conceptos está aquí:
+https://getbootstrap.com/docs/5.1/layout/containers
+
+Bootstrap II
+En la siguiente página de documentación especifica cómo establecer el ancho de las distintas columnas
+Finalmente, el ejemplo más sencillo de grid aquí:
+https://getbootstrap.com/docs/5.1/examples/grid/#containers
+
+Peticiones REST
+El frontend tiene que hacer peticiones REST a los servicios internos
+Se muestra cómo hacerlas de manera sencilla con Python
+Usualmente el paquete requests contiene todo lo necesario para realizarlas
+Incluye todos los métodos de petición REST, los códigos de respuesta y también métodos auxiliares .json()
+
+Peticiones REST II
+import requests
+response = requests.get("url")
+# response.text contiene el texto de la respuesta
+# response.json convierte el texto a un objeto JSON
+# response.status_code contiene el código devuelto
+
+Peticiones REST III
+Las peticiones POST contienen información que se envía al servidor para pedir servicios
+
+Peticiones REST IV
+userlogin = {"email": "abc@def.com", "password": "blah"}
+response = requests.post("backend-server/login_attempt", json=userlogin)
+
+Peticiones REST V
+headers = {"Content-Type": "application/json"}
+response = requests.post("backend-server/login_attempt", data=json.dumps(userlogin), headers=headers)
+
+JSON Web Tokens (JWT)
+En sistemas distribuidos, mantener la sesión en la memoria del servidor es problemático
+JWT es un estándar abierto para transmitir información de forma segura entre partes como un objeto JSON
+Es stateless: el servidor no guarda nada. Toda la información va en el token
+
+Flujo de autenticación con JWT
+1. El usuario envía credenciales
+2. El backend valida
+3. Si son correctas, genera un JWT
+4. El cliente guarda el token
+5. En peticiones protegidas, envía:
+   Authorization: Bearer <token>
+6. El backend verifica la firma
+
+Implementación JWT en Python
+pip install pyjwt
+
+Implementación JWT en Python II
+SECRET_KEY = "mi_secreto_super_seguro"
+payload = {
+  'sub': user_id,
+  'iat': datetime.datetime.utcnow(),
+  'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
+}
+token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+
+Implementación JWT en Python III
+jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+
+Uso de JWT desde el cliente
+token = session.get("jwt_token")
+headers = {"Authorization": f"Bearer {token}"}
+response = requests.get(url, headers=headers)
+
+Qué hacer a partir de aquí
+Diseñar pantallas
+Completar backend
+Tests de usuario
+
+Referencias
+Bootstrap: https://getbootstrap.com
+Tutorial Flask: https://j2logo.com
+DigitalOcean Flask Login: https://www.digitalocean.com/community/tutorials/how-to-add-authentication-to-your-app-with-flask-login-es

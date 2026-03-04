@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mt-5">Chat</h1>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+{% if info %}
+<div class="alert alert-info">{{ info }}{% if location %} - <a href="{{ location }}">result</a>{% endif %}</div>
+{% endif %}
+
+<div class="row">
+  <div class="col-md-4">
+    <h5>Your Dialogues</h5>
+    <ul id="dialogues" class="list-group mb-3"></ul>
+    <div class="input-group mb-3">
+      <input id="new-dialogue-name" class="form-control" placeholder="New dialogue name">
+      <button id="create-dialogue" class="btn btn-outline-secondary">Create</button>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <h5 id="dialogue-title">No dialogue selected</h5>
+    <div id="messages" style="white-space:pre-wrap; border:1px solid #ddd; padding:10px; height:300px; overflow:auto; background:#f8f9fa"></div>
+    <div class="input-group mt-3">
+      <input id="prompt-input" class="form-control" placeholder="Type your prompt...">
+      <button id="send-prompt" class="btn btn-primary">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const USER_ID = {{ user_id }};
+let selectedDialogue = null;
+
+async function fetchDialogues(){
+  const r = await fetch(`/api/u/${USER_ID}/dialogue`, {method:'GET', headers:{'Content-Type':'application/json'}});
+  if(!r.ok) return;
+  const data = await r.json();
+  const list = document.getElementById('dialogues');
+  list.innerHTML = '';
+  data.dialogues.forEach(d=>{
+    const li = document.createElement('li');
+    li.className = 'list-group-item list-group-item-action';
+    li.textContent = `${d.name} (${d.status})`;
+    li.onclick = ()=> selectDialogue(d.name);
+    list.appendChild(li);
+  });
+}
+
+async function createDialogue(){
+  const name = document.getElementById('new-dialogue-name').value || undefined;
+  const r = await fetch(`/api/u/${USER_ID}/dialogue`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
+  if(r.status==201){
+    await fetchDialogues();
+  } else {
+    alert('Error creating dialogue');
+  }
+}
+
+async function selectDialogue(name){
+  selectedDialogue = name;
+  document.getElementById('dialogue-title').textContent = name;
+  await refreshMessages();
+}
+
+async function refreshMessages(){
+  if(!selectedDialogue) return;
+  const r = await fetch(`/api/u/${USER_ID}/dialogue/${encodeURIComponent(selectedDialogue)}`);
+  if(!r.ok) return;
+  const data = await r.json();
+  const msgs = data.dialogue.messages || [];
+  const box = document.getElementById('messages');
+  box.innerHTML = '';
+  msgs.forEach(m=>{
+    const p = document.createElement('div');
+    p.innerHTML = `<strong>${m.role}:</strong> ${m.content}`;
+    box.appendChild(p);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+async function sendPrompt(){
+  if(!selectedDialogue){ alert('Select a dialogue first'); return; }
+  const prompt = document.getElementById('prompt-input').value;
+  if(!prompt) return;
+  const r = await fetch(`/api/u/${USER_ID}/dialogue/${encodeURIComponent(selectedDialogue)}/next`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({prompt})});
+  if(r.status==201){
+    // poll for assistant message
+    setTimeout(async ()=>{
+      await waitForNewMessage();
+      await fetchDialogues();
+    }, 500);
+  } else if(r.status==204){
+    alert('Dialogue busy or finished');
+  } else {
+    const txt = await r.text(); alert('Error: '+txt);
+  }
+}
+
+async function waitForNewMessage(timeout=15000){
+  const start = Date.now();
+  let lastCount = 0;
+  try{ const r0 = await fetch(`/api/u/${USER_ID}/dialogue/${encodeURIComponent(selectedDialogue)}`); const d0=await r0.json(); lastCount = d0.dialogue.messages.length; }catch(e){}
+  while(Date.now()-start < timeout){
+    await new Promise(r=>setTimeout(r,1000));
+    const r = await fetch(`/api/u/${USER_ID}/dialogue/${encodeURIComponent(selectedDialogue)}`);
+    if(!r.ok) continue;
+    const d = await r.json();
+    if(d.dialogue.messages.length>lastCount){
+      await refreshMessages();
+      return;
+    }
+  }
+}
+
+document.getElementById('create-dialogue').onclick = createDialogue;
+document.getElementById('send-prompt').onclick = sendPrompt;
+window.onload = async ()=>{ await fetchDialogues(); };
+</script>
+
+{% endblock %}
