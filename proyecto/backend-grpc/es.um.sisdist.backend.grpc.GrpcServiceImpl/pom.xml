@@ -30,12 +30,7 @@
 		</dependency>
 
 
-<!-- local -->
-    <dependency>
-     <groupId>es.um.sisdist.backend</groupId>
-      <artifactId>dao</artifactId>
-      <version>0.0.1-SNAPSHOT</version>
-    </dependency>
+<!-- local (dao eliminado: ninguna clase gRPC lo usa) -->
         <dependency>
      <groupId>es.um.sisdist.backend.grpc</groupId>
       <artifactId>GrpcService</artifactId>

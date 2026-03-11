@@ -48,6 +48,8 @@ services:
     ports:
       - 50051:50051
     env_file: sql.env
+    environment:
+      - LLAMACHAT_SERVICE_URL=http://ssdd-llamachat:5020/prompt
     depends_on:
       db-mysql:
         condition: service_healthy

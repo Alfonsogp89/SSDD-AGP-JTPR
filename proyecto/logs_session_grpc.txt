@@ -1,0 +1,106 @@
+db-mysql-1  | 2026-03-11 10:45:11+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.4.8-1.el9 started.
+db-mysql-1  | 2026-03-11 10:45:11+00:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+db-mysql-1  | 2026-03-11 10:45:11+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.4.8-1.el9 started.
+db-mysql-1  | 2026-03-11 10:45:12+00:00 [Note] [Entrypoint]: Initializing database files
+db-mysql-1  | 2026-03-11T10:45:12.110822Z 0 [System] [MY-015017] [Server] MySQL Server Initialization - start.
+db-mysql-1  | 2026-03-11T10:45:12.112678Z 0 [System] [MY-013169] [Server] /usr/sbin/mysqld (mysqld 8.4.8) initializing of server in progress as process 80
+db-mysql-1  | 2026-03-11T10:45:12.123623Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.
+db-mysql-1  | 2026-03-11T10:45:12.603125Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.
+db-mysql-1  | 2026-03-11T10:45:14.371434Z 6 [Warning] [MY-010453] [Server] root@localhost is created with an empty password ! Please consider switching off the --initialize-insecure option.
+db-mysql-1  | 2026-03-11T10:45:17.137077Z 0 [System] [MY-015018] [Server] MySQL Server Initialization - end.
+db-mysql-1  | 2026-03-11 10:45:15+00:00 [Note] [Entrypoint]: Database files initialized
+db-mysql-1  | 2026-03-11 10:45:15+00:00 [Note] [Entrypoint]: Starting temporary server
+db-mysql-1  | 2026-03-11T10:45:15.513538Z 0 [System] [MY-015015] [Server] MySQL Server - start.
+db-mysql-1  | 2026-03-11T10:45:15.842494Z 0 [System] [MY-010116] [Server] /usr/sbin/mysqld (mysqld 8.4.8) starting as process 133
+db-mysql-1  | 2026-03-11T10:45:15.870684Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.
+db-mysql-1  | 2026-03-11T10:45:16.414984Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.
+db-mysql-1  | 2026-03-11T10:45:16.923106Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.
+db-mysql-1  | 2026-03-11T10:45:16.923170Z 0 [System] [MY-013602] [Server] Channel mysql_main configured to support TLS. Encrypted connections are now supported for this channel.
+db-mysql-1  | 2026-03-11T10:45:16.928483Z 0 [Warning] [MY-011810] [Server] Insecure configuration for --pid-file: Location '/var/run/mysqld' in the path is accessible to all OS users. Consider choosing a different directory.
+db-mysql-1  | 2026-03-11T10:45:16.968868Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Socket: /var/run/mysqld/mysqlx.sock
+db-mysql-1  | 2026-03-11T10:45:16.969481Z 0 [System] [MY-010931] [Server] /usr/sbin/mysqld: ready for connections. Version: '8.4.8'  socket: '/var/run/mysqld/mysqld.sock'  port: 0  MySQL Community Server - GPL.
+db-mysql-1  | 2026-03-11 10:45:17+00:00 [Note] [Entrypoint]: Temporary server started.
+db-mysql-1  | '/var/lib/mysql/mysql.sock' -> '/var/run/mysqld/mysqld.sock'
+db-mysql-1  | Warning: Unable to load '/usr/share/zoneinfo/iso3166.tab' as time zone. Skipping it.
+db-mysql-1  | Warning: Unable to load '/usr/share/zoneinfo/leap-seconds.list' as time zone. Skipping it.
+db-mysql-1  | Warning: Unable to load '/usr/share/zoneinfo/leapseconds' as time zone. Skipping it.
+db-mysql-1  | Warning: Unable to load '/usr/share/zoneinfo/tzdata.zi' as time zone. Skipping it.
+db-mysql-1  | Warning: Unable to load '/usr/share/zoneinfo/zone.tab' as time zone. Skipping it.
+db-mysql-1  | Warning: Unable to load '/usr/share/zoneinfo/zone1970.tab' as time zone. Skipping it.
+db-mysql-1  | 2026-03-11 10:45:20+00:00 [Note] [Entrypoint]: Creating database ssdd
+db-mysql-1  | 
+db-mysql-1  | 2026-03-11 10:45:20+00:00 [Note] [Entrypoint]: /usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/schema.sql
+db-mysql-1  | 
+db-mysql-1  | 
+db-mysql-1  | 2026-03-11 10:45:20+00:00 [Note] [Entrypoint]: Stopping temporary server
+db-mysql-1  | 2026-03-11T10:45:20.582622Z 12 [System] [MY-013172] [Server] Received SHUTDOWN from user root. Shutting down mysqld (Version: 8.4.8).
+db-mysql-1  | 2026-03-11T10:45:21.218208Z 0 [System] [MY-010910] [Server] /usr/sbin/mysqld: Shutdown complete (mysqld 8.4.8)  MySQL Community Server - GPL.
+db-mysql-1  | 2026-03-11T10:45:21.218276Z 0 [System] [MY-015016] [Server] MySQL Server - end.
+db-mysql-1  | 2026-03-11 10:45:21+00:00 [Note] [Entrypoint]: Temporary server stopped
+db-mysql-1  | 
+db-mysql-1  | 2026-03-11 10:45:21+00:00 [Note] [Entrypoint]: MySQL init process done. Ready for start up.
+db-mysql-1  | 
+db-mysql-1        | 2026-03-11T10:45:21.624445Z 0 [System] [MY-015015] [Server] MySQL Server - start.
+db-mysql-1        | 2026-03-11T10:45:21.922542Z 0 [System] [MY-010116] [Server] /usr/sbin/mysqld (mysqld 8.4.8) starting as process 1
+db-mysql-1        | 2026-03-11T10:45:21.932927Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.
+db-mysql-1        | 2026-03-11T10:45:22.384250Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.
+db-mysql-1        | 2026-03-11T10:45:22.779381Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.
+db-mysql-1        | 2026-03-11T10:45:22.779441Z 0 [System] [MY-013602] [Server] Channel mysql_main configured to support TLS. Encrypted connections are now supported for this channel.
+db-mysql-1        | 2026-03-11T10:45:22.784790Z 0 [Warning] [MY-011810] [Server] Insecure configuration for --pid-file: Location '/var/run/mysqld' in the path is accessible to all OS users. Consider choosing a different directory.
+db-mysql-1        | 2026-03-11T10:45:22.817439Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Bind-address: '::' port: 33060, socket: /var/run/mysqld/mysqlx.sock
+db-mysql-1        | 2026-03-11T10:45:22.817707Z 0 [System] [MY-010931] [Server] /usr/sbin/mysqld: ready for connections. Version: '8.4.8'  socket: '/var/run/mysqld/mysqld.sock'  port: 3306  MySQL Community Server - GPL.
+ssdd-llamachat-1  |  * Serving Flask app 'app/app.py'
+ssdd-llamachat-1  |  * Debug mode: on
+ssdd-llamachat-1  | [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ssdd-llamachat-1  |  * Running on all addresses (0.0.0.0)
+ssdd-llamachat-1  |  * Running on http://127.0.0.1:5020
+ssdd-llamachat-1  |  * Running on http://172.19.0.2:5020
+ssdd-llamachat-1  | [33mPress CTRL+C to quit[0m
+ssdd-llamachat-1  |  * Restarting with stat
+ssdd-llamachat-1  |  * Debugger is active!
+ssdd-llamachat-1  |  * Debugger PIN: 507-008-007
+ssdd-llamachat-1  | 172.19.0.4 - - [11/Mar/2026 10:45:43] "[35m[1mPOST /prompt HTTP/1.1[0m" 202 -
+backend-grpc-1    | Mar 11, 2026 10:45:25 AM es.um.sisdist.backend.grpc.impl.GrpcServiceServer start
+backend-grpc-1    | INFO: Server started, listening on 50051
+backend-grpc-1    | Mar 11, 2026 10:45:43 AM es.um.sisdist.backend.grpc.impl.LlamaChatServiceImpl sendPrompt
+backend-grpc-1    | INFO: Received prompt request from user: 1 for dialogue: test-001
+backend-grpc-1    | Mar 11, 2026 10:47:32 AM es.um.sisdist.backend.grpc.impl.GrpcServiceImpl ping
+backend-grpc-1    | INFO: Recived PING request, value = 1
+backend-rest-1    | 11-Mar-2026 10:45:25.502 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Server version name:   Apache Tomcat/11.0.18
+backend-rest-1    | 11-Mar-2026 10:45:25.512 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Server built:          Jan 23 2026 10:22:57 UTC
+backend-rest-1    | 11-Mar-2026 10:45:25.513 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Server version number: 11.0.18.0
+backend-rest-1    | 11-Mar-2026 10:45:25.514 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log OS Name:               Linux
+backend-rest-1    | 11-Mar-2026 10:45:25.515 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log OS Version:            6.6.87.2-microsoft-standard-WSL2
+backend-rest-1    | 11-Mar-2026 10:45:25.515 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Architecture:          amd64
+backend-rest-1    | 11-Mar-2026 10:45:25.516 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Java Home:             /opt/java/openjdk
+backend-rest-1    | 11-Mar-2026 10:45:25.517 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log JVM Version:           17.0.18+8
+backend-rest-1    | 11-Mar-2026 10:45:25.518 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log JVM Vendor:            Eclipse Adoptium
+backend-rest-1    | 11-Mar-2026 10:45:25.519 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log CATALINA_BASE:         /usr/local/tomcat
+backend-rest-1    | 11-Mar-2026 10:45:25.520 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log CATALINA_HOME:         /usr/local/tomcat
+backend-rest-1    | 11-Mar-2026 10:45:25.544 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Djava.util.logging.config.file=/usr/local/tomcat/conf/logging.properties
+backend-rest-1    | 11-Mar-2026 10:45:25.545 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager
+backend-rest-1    | 11-Mar-2026 10:45:25.546 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Djdk.tls.ephemeralDHKeySize=2048
+backend-rest-1    | 11-Mar-2026 10:45:25.547 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Dorg.apache.catalina.security.SecurityListener.UMASK=0027
+backend-rest-1    | 11-Mar-2026 10:45:25.547 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: --add-opens=java.base/java.lang=ALL-UNNAMED
+backend-rest-1    | 11-Mar-2026 10:45:25.549 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: --add-opens=java.base/java.lang.reflect=ALL-UNNAMED
+backend-rest-1    | 11-Mar-2026 10:45:25.550 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: --add-opens=java.base/java.io=ALL-UNNAMED
+backend-rest-1    | 11-Mar-2026 10:45:25.550 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: --add-opens=java.base/java.util=ALL-UNNAMED
+backend-rest-1    | 11-Mar-2026 10:45:25.551 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+backend-rest-1    | 11-Mar-2026 10:45:25.551 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: --add-opens=java.rmi/sun.rmi.transport=ALL-UNNAMED
+backend-rest-1    | 11-Mar-2026 10:45:25.552 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: --enable-native-access=ALL-UNNAMED
+backend-rest-1    | 11-Mar-2026 10:45:25.553 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Dcatalina.base=/usr/local/tomcat
+backend-rest-1    | 11-Mar-2026 10:45:25.553 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Dcatalina.home=/usr/local/tomcat
+backend-rest-1    | 11-Mar-2026 10:45:25.554 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Djava.io.tmpdir=/usr/local/tomcat/temp
+backend-rest-1    | 11-Mar-2026 10:45:25.565 INFO [main] org.apache.catalina.core.AprLifecycleListener.lifecycleEvent Loaded Apache Tomcat Native library [2.0.12] using APR version [1.7.2].
+backend-rest-1    | 11-Mar-2026 10:45:25.573 INFO [main] org.apache.catalina.core.AprLifecycleListener.initializeSSL OpenSSL successfully initialized [OpenSSL 3.0.13 30 Jan 2024]
+backend-rest-1    | 11-Mar-2026 10:45:26.001 INFO [main] org.apache.coyote.AbstractProtocol.init Initializing ProtocolHandler ["http-nio-8080"]
+backend-rest-1    | 11-Mar-2026 10:45:26.037 INFO [main] org.apache.catalina.startup.Catalina.load Server initialization in [854] milliseconds
+backend-rest-1    | 11-Mar-2026 10:45:26.131 INFO [main] org.apache.catalina.core.StandardService.startInternal Starting service [Catalina]
+backend-rest-1    | 11-Mar-2026 10:45:26.131 INFO [main] org.apache.catalina.core.StandardEngine.startInternal Starting Servlet engine: [Apache Tomcat/11.0.18]
+backend-rest-1    | 11-Mar-2026 10:45:26.171 INFO [main] org.apache.catalina.startup.HostConfig.deployWAR Deploying web application archive [/usr/local/tomcat/webapps/Service.war]
+backend-rest-1    | 11-Mar-2026 10:45:28.438 INFO [main] org.apache.jasper.servlet.TldScanner.scanJars At least one JAR was scanned for TLDs yet contained no TLDs. Enable debug logging for this logger for a complete list of JARs that were scanned but no TLDs were found in them. Skipping unneeded JARs during scanning can improve startup time and JSP compilation time.
+backend-rest-1    | 11-Mar-2026 10:45:29.625 INFO [main] org.apache.catalina.startup.HostConfig.deployWAR Deployment of web application archive [/usr/local/tomcat/webapps/Service.war] has finished in [3,454] ms
+backend-rest-1    | 11-Mar-2026 10:45:29.631 INFO [main] org.apache.coyote.AbstractProtocol.start Starting ProtocolHandler ["http-nio-8080"]
+backend-rest-1    | 11-Mar-2026 10:45:29.651 INFO [main] org.apache.catalina.startup.Catalina.start Server startup in [3613] milliseconds
+backend-rest-1    | 11-Mar-2026 10:45:44.941 INFO [http-nio-8080-exec-1] es.um.sisdist.backend.Service.impl.AppLogicImpl.sendPrompt Sending prompt via gRPC – user=1 dialogue=test-001
+backend-rest-1    | 11-Mar-2026 10:47:32.410 INFO [http-nio-8080-exec-2] es.um.sisdist.backend.Service.impl.AppLogicImpl.ping Issuing ping, value: 1

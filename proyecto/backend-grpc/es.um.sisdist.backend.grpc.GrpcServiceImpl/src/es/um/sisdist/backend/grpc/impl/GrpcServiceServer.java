@@ -31,12 +31,12 @@
 
 package es.um.sisdist.backend.grpc.impl;
 
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
-
 import java.io.IOException;
 import java.util.Optional;
 import java.util.logging.Logger;
+
+import io.grpc.Server;
+import io.grpc.ServerBuilder;
 
 /**
  * Server that manages startup/shutdown of a {@code Greeter} server.
@@ -56,6 +56,7 @@ public class GrpcServiceServer
     server = ServerBuilder.forPort(
     			grpcServerPort.isPresent() ? Integer.parseInt(grpcServerPort.get()) : port)
         .addService(new GrpcServiceImpl(logger))
+        .addService(new LlamaChatServiceImpl())
         .build()
         .start();
     logger.info("Server started, listening on " + port);
