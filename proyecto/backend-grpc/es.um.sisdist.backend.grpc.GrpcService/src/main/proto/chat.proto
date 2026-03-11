@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "es.um.sisdist.backend.grpc.chat";
+
+package es.um.sisdist.backend.grpc;
+
+service LlamaChatService {
+  // Envía un prompt a la cola/conversación simulada
+  rpc SendPrompt(PromptRequest) returns (PromptResponse);
+}
+
+message PromptRequest {
+  int32 user_id = 1;
+  string dialogue_id = 2; // O identificar por user_id + name
+  string prompt = 3;
+}
+
+message PromptResponse {
+  bool success = 1;
+  string message = 2; // Puede ser 201 aceptado, 102 procesando, etc. Si el modelo bloquea, devuelve directo.
+}

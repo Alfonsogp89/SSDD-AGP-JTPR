@@ -1,0 +1,33 @@
+backend-grpc-1  | Mar 11, 2026 10:45:25 AM es.um.sisdist.backend.grpc.impl.GrpcServiceServer start
+backend-grpc-1  | INFO: Server started, listening on 50051
+backend-grpc-1  | Mar 11, 2026 10:45:43 AM es.um.sisdist.backend.grpc.impl.LlamaChatServiceImpl sendPrompt
+backend-grpc-1  | INFO: Received prompt request from user: 1 for dialogue: test-001
+backend-grpc-1  | Mar 11, 2026 10:47:32 AM es.um.sisdist.backend.grpc.impl.GrpcServiceImpl ping
+backend-grpc-1  | INFO: Recived PING request, value = 1
+backend-grpc-1  | Mar 11, 2026 10:52:44 AM io.grpc.netty.NettyServerTransport notifyTerminated
+backend-grpc-1  | INFO: Transport failed
+backend-grpc-1  | io.netty.handler.codec.http2.Http2Exception: Unexpected HTTP/1.x request: GET /ping 
+backend-grpc-1  | 	at io.netty.handler.codec.http2.Http2Exception.connectionError(Http2Exception.java:107)
+backend-grpc-1  | 	at io.netty.handler.codec.http2.Http2ConnectionHandler$PrefaceDecoder.readClientPrefaceString(Http2ConnectionHandler.java:315)
+backend-grpc-1  | 	at io.netty.handler.codec.http2.Http2ConnectionHandler$PrefaceDecoder.decode(Http2ConnectionHandler.java:245)
+backend-grpc-1  | 	at io.netty.handler.codec.http2.Http2ConnectionHandler.decode(Http2ConnectionHandler.java:451)
+backend-grpc-1  | 	at io.netty.handler.codec.ByteToMessageDecoder.decodeRemovalReentryProtection(ByteToMessageDecoder.java:545)
+backend-grpc-1  | 	at io.netty.handler.codec.ByteToMessageDecoder.callDecode(ByteToMessageDecoder.java:484)
+backend-grpc-1  | 	at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:296)
+backend-grpc-1  | 	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:444)
+backend-grpc-1  | 	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+backend-grpc-1  | 	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
+backend-grpc-1  | 	at io.netty.channel.DefaultChannelPipeline$HeadContext.channelRead(DefaultChannelPipeline.java:1357)
+backend-grpc-1  | 	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:440)
+backend-grpc-1  | 	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+backend-grpc-1  | 	at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:868)
+backend-grpc-1  | 	at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:166)
+backend-grpc-1  | 	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:796)
+backend-grpc-1  | 	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+backend-grpc-1  | 	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+backend-grpc-1  | 	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+backend-grpc-1  | 	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+backend-grpc-1  | 	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+backend-grpc-1  | 	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+backend-grpc-1  | 	at java.base/java.lang.Thread.run(Unknown Source)
+backend-grpc-1  | 

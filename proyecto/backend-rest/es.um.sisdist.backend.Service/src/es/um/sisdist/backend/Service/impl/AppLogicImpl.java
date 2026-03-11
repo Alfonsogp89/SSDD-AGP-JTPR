@@ -8,6 +8,9 @@ import java.util.logging.Logger;
 
 import es.um.sisdist.backend.grpc.GrpcServiceGrpc;
 import es.um.sisdist.backend.grpc.PingRequest;
+import es.um.sisdist.backend.grpc.chat.LlamaChatServiceGrpc;
+import es.um.sisdist.backend.grpc.chat.PromptRequest;
+import es.um.sisdist.backend.grpc.chat.PromptResponse;
 import es.um.sisdist.backend.dao.DAOFactoryImpl;
 import es.um.sisdist.backend.dao.IDAOFactory;
 import es.um.sisdist.backend.dao.models.User;
@@ -29,6 +32,7 @@ public class AppLogicImpl
 
     private final ManagedChannel channel;
     private final GrpcServiceGrpc.GrpcServiceBlockingStub blockingStub;
+    private final LlamaChatServiceGrpc.LlamaChatServiceBlockingStub chatStub;
     //private final GrpcServiceGrpc.GrpcServiceStub asyncStub;
 
     static AppLogicImpl instance = new AppLogicImpl();
@@ -52,6 +56,7 @@ public class AppLogicImpl
                 // to avoid needing certificates.
                 .usePlaintext().build();
         blockingStub = GrpcServiceGrpc.newBlockingStub(channel);
+        chatStub = LlamaChatServiceGrpc.newBlockingStub(channel);
         //asyncStub = GrpcServiceGrpc.newStub(channel);
     }
 
@@ -80,6 +85,24 @@ public class AppLogicImpl
         var response = blockingStub.ping(msg);
         
         return response.getV() == v;
+    }
+
+    /**
+     * Envía un prompt al servidor gRPC (LlamaChatService), que a su vez
+     * lo reenvía al contenedor ssdd-llamachat-dummy.
+     *
+     * Nota: en esta entrega NO se valida JWT. El userId puede venir
+     * hardcodeado o del propio body de la petición REST.
+     */
+    public PromptResponse sendPrompt(int userId, String dialogueId, String prompt)
+    {
+        logger.info("Sending prompt via gRPC – user=" + userId + " dialogue=" + dialogueId);
+        var request = PromptRequest.newBuilder()
+                .setUserId(userId)
+                .setDialogueId(dialogueId)
+                .setPrompt(prompt)
+                .build();
+        return chatStub.sendPrompt(request);
     }
 
     // El frontend, a través del formulario de login,

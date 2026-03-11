@@ -1,0 +1,11 @@
+ssdd-llamachat-1  |  * Serving Flask app 'app/app.py'
+ssdd-llamachat-1  |  * Debug mode: on
+ssdd-llamachat-1  | [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ssdd-llamachat-1  |  * Running on all addresses (0.0.0.0)
+ssdd-llamachat-1  |  * Running on http://127.0.0.1:5020
+ssdd-llamachat-1  |  * Running on http://172.19.0.2:5020
+ssdd-llamachat-1  | [33mPress CTRL+C to quit[0m
+ssdd-llamachat-1  |  * Restarting with stat
+ssdd-llamachat-1  |  * Debugger is active!
+ssdd-llamachat-1  |  * Debugger PIN: 507-008-007
+ssdd-llamachat-1  | 172.19.0.4 - - [11/Mar/2026 10:45:43] "[35m[1mPOST /prompt HTTP/1.1[0m" 202 -
