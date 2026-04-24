@@ -4,6 +4,7 @@ from flask_login import LoginManager, current_user, login_user, login_required, 
 import requests
 import os
 import jwt
+import threading
 from models_db import Dialogue, Message, create_dialogue, get_dialogue_by_name, add_message
 import datetime
 
@@ -18,7 +19,7 @@ login_manager = LoginManager()
 login_manager.init_app(app)  # Para mantener la sesión
 
 # Configurar el secret_key. OJO, no debe ir en un servidor git público.
-app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET', 'dev-secret-change-me')
+app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET', 'dev-secret-change-me-ssdd-2526-ok')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///frontend.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -164,7 +165,10 @@ def load_user(user_id):
 @app.route('/chat')
 @login_required
 def chat():
-    return render_template('chat.html', user_id=current_user.id)
+    # Regenerar JWT si falta de la sesión (ej: tras hot-reload del servidor en debug)
+    if not session.get('jwt_token'):
+        session['jwt_token'] = generate_jwt(current_user.id)
+    return render_template('chat.html', user_id=current_user.id, jwt_token=session.get('jwt_token'))
 
 
 @app.route('/chat/send', methods=['POST'])
@@ -205,53 +209,34 @@ def chat_send():
 
 
 @app.route('/api/u/<int:user_id>/dialogue', methods=['GET'])
-@require_jwt
+@login_required
 def api_get_dialogue(user_id):
-    # Verify token subject matches requested user
-    token = get_auth_token_from_request()
-    try:
-        payload = decode_jwt(token)
-    except Exception:
-        return jsonify({'error': 'invalid token'}), 401
-    if int(payload.get('sub')) != int(user_id):
+    if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-
     dialogues = Dialogue.query.filter_by(user_id=user_id).all()
     return jsonify({'dialogues': [serialize_dialogue(d) for d in dialogues]})
 
 
 
 @app.route('/api/u/<int:user_id>/dialogue', methods=['POST'])
-@require_jwt
+@login_required
 def api_create_dialogue(user_id):
-    token = get_auth_token_from_request()
-    try:
-        payload = decode_jwt(token)
-    except Exception:
-        return jsonify({'error': 'invalid token'}), 401
-    if int(payload.get('sub')) != int(user_id):
+    if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-
     user = User.query.get(user_id)
     if not user:
         return jsonify({'error': 'user not found'}), 404
     data = request.get_json(silent=True) or {}
-    name = data.get('name') or f'dialogue-{int(time.time())}'
+    name = data.get('name') or f'dialogue-{user_id}'
     dlg = create_dialogue(user, name)
     return jsonify({'dialogue': serialize_dialogue(dlg)}), 201
 
 
 @app.route('/api/u/<int:user_id>/dialogue/<string:dname>', methods=['GET'])
-@require_jwt
+@login_required
 def api_get_one_dialogue(user_id, dname):
-    token = get_auth_token_from_request()
-    try:
-        payload = decode_jwt(token)
-    except Exception:
-        return jsonify({'error': 'invalid token'}), 401
-    if int(payload.get('sub')) != int(user_id):
+    if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-
     user = User.query.get(user_id)
     if not user:
         return jsonify({'error': 'user not found'}), 404
@@ -262,16 +247,10 @@ def api_get_one_dialogue(user_id, dname):
 
 
 @app.route('/api/u/<int:user_id>/dialogue/<string:dname>/next', methods=['POST'])
-@require_jwt
+@login_required
 def api_dialogue_next(user_id, dname):
-    token = get_auth_token_from_request()
-    try:
-        payload = decode_jwt(token)
-    except Exception:
-        return jsonify({'error': 'invalid token'}), 401
-    if int(payload.get('sub')) != int(user_id):
+    if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-
     user = User.query.get(user_id)
     if not user:
         return jsonify({'error': 'user not found'}), 404
@@ -293,18 +272,22 @@ def api_dialogue_next(user_id, dname):
     add_message(dlg, 'user', prompt)
 
     # background worker to call prompt service and add assistant message
+    prompt_service = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8180/prompt')
+
     def worker(dialogue_id, prompt_text):
         try:
-            prompt_service = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8180/prompt')
-            headers = {'Content-Type': 'application/json'}
-            token_h = get_auth_token_from_request()
-            if token_h:
-                headers['Authorization'] = f'Bearer {token_h}'
-            resp = requests.post(prompt_service, json={'prompt': prompt_text}, headers=headers, timeout=30)
+            resp = requests.post(
+                prompt_service,
+                json={'prompt': prompt_text},
+                headers={'Content-Type': 'application/json'},
+                timeout=30
+            )
             content = None
             if resp.status_code in (200, 201):
                 try:
-                    content = resp.json().get('answer') or resp.json().get('response')
+                    rdata = resp.json()
+                    # ChatEndpoint devuelve PromptResponseDTO con campo 'message'
+                    content = rdata.get('message') or rdata.get('answer') or rdata.get('response') or resp.text
                 except Exception:
                     content = resp.text
             else:
@@ -316,11 +299,11 @@ def api_dialogue_next(user_id, dname):
                     add_message(dlg2, 'assistant', content)
                     dlg2.status = 'READY'
                     db.session.commit()
-        except Exception:
+        except Exception as ex:
             with app.app_context():
                 dlg2 = Dialogue.query.get(dialogue_id)
                 if dlg2:
-                    add_message(dlg2, 'assistant', 'Error contacting prompt service')
+                    add_message(dlg2, 'assistant', f'Error contacting prompt service: {ex}')
                     dlg2.status = 'READY'
                     db.session.commit()
 
@@ -332,16 +315,10 @@ def api_dialogue_next(user_id, dname):
 
 
 @app.route('/api/u/<int:user_id>/dialogue/<string:dname>/end', methods=['POST'])
-@require_jwt
+@login_required
 def api_dialogue_end(user_id, dname):
-    token = get_auth_token_from_request()
-    try:
-        payload = decode_jwt(token)
-    except Exception:
-        return jsonify({'error': 'invalid token'}), 401
-    if int(payload.get('sub')) != int(user_id):
+    if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-
     user = User.query.get(user_id)
     if not user:
         return jsonify({'error': 'user not found'}), 404
@@ -354,7 +331,7 @@ def api_dialogue_end(user_id, dname):
 
 
 @app.route('/api/chat/send', methods=['POST'])
-@require_jwt
+@login_required
 def api_chat_send():
     data = request.get_json(silent=True) or request.form.to_dict() or {}
     prompt = data.get('prompt')
@@ -362,15 +339,15 @@ def api_chat_send():
         return jsonify({'error': 'missing prompt'}), 400
 
     prompt_service = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8180/prompt')
-    headers = get_auth_headers()
     try:
-        resp = requests.post(prompt_service, json={'prompt': prompt}, headers=headers, timeout=10)
+        resp = requests.post(prompt_service, json={'prompt': prompt},
+                             headers={'Content-Type': 'application/json'}, timeout=10)
     except requests.RequestException as e:
         return jsonify({'error': 'upstream error', 'detail': str(e)}), 502
 
-    # Proxy the response content and status
     content_type = resp.headers.get('Content-Type', 'application/json')
     return Response(resp.content, status=resp.status_code, content_type=content_type)
+
 
 
 @app.route('/metrics')

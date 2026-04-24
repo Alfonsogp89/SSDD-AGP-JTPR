@@ -9,6 +9,7 @@ services:
       - FLASK_APP=app/app.py
       - FLASK_DEBUG=true
       - PORT=5010
+      - PROMPT_SERVICE_URL=http://backend-rest:8080/Service/chat
     depends_on:
       db-mysql:
         condition: service_healthy
