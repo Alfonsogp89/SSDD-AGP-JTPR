@@ -112,6 +112,56 @@ public class DialogueEndpoint
             return Response.status(500).entity("{\"error\":\"" + e.getMessage() + "\"}").build();
         }
     }
+    
+    /**
+     * DELETE /u/{userId}/dialogue/{dialogueName}
+     * Elimina un diálogo específico
+     */
+    @DELETE
+    @Path("/{dialogueName}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response deleteDialogue(@PathParam("userId") int userId, @PathParam("dialogueName") String dialogueName)
+    {
+        try
+        {
+            DialogueDTO d = getDialogueFromDB(userId, dialogueName);
+            if (d == null)
+            {
+                return Response.status(404).entity("{\"error\":\"Dialogue not found\"}").build();
+            }
+
+            // Eliminar mensajes asociados primero
+            String sqlMessages = "DELETE FROM messages WHERE dialogue_id = ?";
+            String sqlDialogue = "DELETE FROM dialogues WHERE id = ?";
+
+            try (Connection conn = getConnection())
+            {
+                conn.setAutoCommit(false);
+                try (PreparedStatement pstmtMsg = conn.prepareStatement(sqlMessages);
+                     PreparedStatement pstmtDlg = conn.prepareStatement(sqlDialogue))
+                {
+                    pstmtMsg.setInt(1, d.id);
+                    pstmtMsg.executeUpdate();
+
+                    pstmtDlg.setInt(1, d.id);
+                    pstmtDlg.executeUpdate();
+
+                    conn.commit();
+                }
+                catch (SQLException e)
+                {
+                    conn.rollback();
+                    throw e;
+                }
+            }
+
+            return Response.ok("{\"status\":\"deleted\",\"name\":\"" + dialogueName + "\"}").build();
+        }
+        catch (Exception e)
+        {
+            return Response.status(500).entity("{\"error\":\"" + e.getMessage() + "\"}").build();
+        }
+    }
 
     /**
      * PUT /u/{userId}/dialogue/{dialogueName}

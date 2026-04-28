@@ -7,6 +7,12 @@
 <div class="alert alert-danger">{{ error }}</div>
 {% endif %}
 
+{% if form.errors %}
+<div class="alert alert-danger">
+  {{ form.errors }}
+</div>
+{% endif %}
+
 <form method="POST">
   {{ form.hidden_tag() }}
   <div class="mb-3">
