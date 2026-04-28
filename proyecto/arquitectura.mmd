@@ -1,0 +1,34 @@
+graph TD
+    subgraph Cliente
+        C[TestClient / Frontend]
+    end
+
+    subgraph Backend REST (Tomcat)
+        R[Service API]
+        M[MetricsManager & Endpoint]
+    end
+
+    subgraph Backend Procesamiento (gRPC)
+        G[gRPC Server]
+    end
+
+    subgraph Modelos IA Externos
+        LLM[Llama-Chat Dummy Service]
+    end
+
+    subgraph Almacenamiento
+        DB[(MySQL Database)]
+    end
+
+    subgraph Monitorización
+        P[(Prometheus)]
+    end
+
+    C -->|1. HTTP REST CRUD & Prompts| R
+    R -->|2. Delegación gRPC| G
+    G -->|3. Llamada Prompts| LLM
+    G -->|4. Persistencia Respuesta| DB
+    R -->|Añadir Diálogos & Mensajes| DB
+
+    P -->|Scraping de Métricas cada X seg| M
+    R -->|Registrar Prompts| M

@@ -28,7 +28,8 @@ import java.util.List;
 public class DialogueEndpoint
 {
     private AppLogicImpl impl = AppLogicImpl.getInstance();
-    private ObjectMapper mapper = new ObjectMapper();
+    private ObjectMapper mapper = new ObjectMapper()
+            .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
 
     /**
      * GET /u/{userId}/dialogue
@@ -41,9 +42,7 @@ public class DialogueEndpoint
         try
         {
             List<DialogueDTO> dialogues = getDialoguesFromDB(userId);
-            String json = mapper.writeValueAsString(new Object() {
-                public List<DialogueDTO> dialogues = new ArrayList<>(dialogues);
-            });
+            String json = mapper.writeValueAsString(java.util.Map.of("dialogues", dialogues));
             return Response.ok(json).type(MediaType.APPLICATION_JSON).build();
         }
         catch (Exception e)
@@ -105,10 +104,58 @@ public class DialogueEndpoint
             if (dialogue == null)
                 return Response.status(404).entity("{\"error\":\"Dialogue not found\"}").build();
 
-            String json = mapper.writeValueAsString(new Object() {
-                public DialogueDTO dialogue = new DialogueDTO(dialogue.id, dialogue.name, dialogue.status, dialogue.createdAt, dialogue.messages);
-            });
+            String json = mapper.writeValueAsString(java.util.Map.of("dialogue", dialogue));
             return Response.ok(json).type(MediaType.APPLICATION_JSON).build();
+        }
+        catch (Exception e)
+        {
+            return Response.status(500).entity("{\"error\":\"" + e.getMessage() + "\"}").build();
+        }
+    }
+    
+    /**
+     * DELETE /u/{userId}/dialogue/{dialogueName}
+     * Elimina un diálogo específico
+     */
+    @DELETE
+    @Path("/{dialogueName}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response deleteDialogue(@PathParam("userId") int userId, @PathParam("dialogueName") String dialogueName)
+    {
+        try
+        {
+            DialogueDTO d = getDialogueFromDB(userId, dialogueName);
+            if (d == null)
+            {
+                return Response.status(404).entity("{\"error\":\"Dialogue not found\"}").build();
+            }
+
+            // Eliminar mensajes asociados primero
+            String sqlMessages = "DELETE FROM messages WHERE dialogue_id = ?";
+            String sqlDialogue = "DELETE FROM dialogues WHERE id = ?";
+
+            try (Connection conn = getConnection())
+            {
+                conn.setAutoCommit(false);
+                try (PreparedStatement pstmtMsg = conn.prepareStatement(sqlMessages);
+                     PreparedStatement pstmtDlg = conn.prepareStatement(sqlDialogue))
+                {
+                    pstmtMsg.setInt(1, d.id);
+                    pstmtMsg.executeUpdate();
+
+                    pstmtDlg.setInt(1, d.id);
+                    pstmtDlg.executeUpdate();
+
+                    conn.commit();
+                }
+                catch (SQLException e)
+                {
+                    conn.rollback();
+                    throw e;
+                }
+            }
+
+            return Response.ok("{\"status\":\"deleted\",\"name\":\"" + dialogueName + "\"}").build();
         }
         catch (Exception e)
         {
@@ -171,8 +218,9 @@ public class DialogueEndpoint
             // Agregar mensaje del usuario a la BD
             addMessageToDB(dialogue.id, "user", prompt);
 
-            // TODO: Llamar al servicio gRPC para obtener respuesta
-            // Por ahora, responder con 201 Accepted
+            // Llamar al servicio gRPC para obtener respuesta
+            impl.sendPrompt(userId, dialogueName, prompt);
+            
             return Response.status(201).entity("{\"status\":\"accepted\"}").build();
         }
         catch (Exception e)
@@ -288,8 +336,10 @@ public class DialogueEndpoint
         if (url == null)
             url = "jdbc:mysql://db-mysql:3306/ssdd?useSSL=false&serverTimezone=UTC";
 
-        return DriverManager.getConnection(url,
-                System.getenv("MYSQL_USER") != null ? System.getenv("MYSQL_USER") : "root",
-                System.getenv("MYSQL_PASSWORD") != null ? System.getenv("MYSQL_PASSWORD") : "");
+        String user = System.getenv("MYSQL_USER") != null ? System.getenv("MYSQL_USER") : "root";
+        String pass = System.getenv("MYSQL_PASSWORD") != null ? System.getenv("MYSQL_PASSWORD") : 
+                     (System.getenv("MYSQL_ROOT_PASSWORD") != null ? System.getenv("MYSQL_ROOT_PASSWORD") : "");
+
+        return DriverManager.getConnection(url, user, pass);
     }
 }

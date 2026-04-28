@@ -16,6 +16,7 @@ from models_db import db, User, get_user_by_email, create_user
 
 app = Flask(__name__, static_url_path='')
 login_manager = LoginManager()
+login_manager.login_view = 'login'
 login_manager.init_app(app)  # Para mantener la sesión
 
 # Configurar el secret_key. OJO, no debe ir en un servidor git público.
@@ -244,6 +245,33 @@ def api_get_one_dialogue(user_id, dname):
     if not dlg:
         return jsonify({'error': 'dialogue not found'}), 404
     return jsonify({'dialogue': serialize_dialogue(dlg)})
+
+
+@app.route('/api/u/<int:user_id>/dialogue/<string:dname>', methods=['DELETE'])
+@login_required
+def api_delete_dialogue(user_id, dname):
+    if current_user.id != user_id:
+        return jsonify({'error': 'forbidden'}), 403
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'user not found'}), 404
+        
+    # Eliminar de la BD local de SQLite
+    dlg = get_dialogue_by_name(user, dname)
+    if dlg:
+        Message.query.filter_by(dialogue_id=dlg.id).delete()
+        db.session.delete(dlg)
+        db.session.commit()
+        
+    # Intentar eliminar también del backend REST Java
+    prompt_service = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8180/prompt')
+    backend_url = prompt_service.replace("/chat", f"/u/{user_id}/dialogue/{dname}")
+    try:
+        requests.delete(backend_url, timeout=10)
+    except Exception:
+        pass
+
+    return jsonify({'status': 'deleted'})
 
 
 @app.route('/api/u/<int:user_id>/dialogue/<string:dname>/next', methods=['POST'])

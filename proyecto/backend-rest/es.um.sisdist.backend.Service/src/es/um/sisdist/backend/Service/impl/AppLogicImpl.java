@@ -6,6 +6,7 @@ package es.um.sisdist.backend.Service.impl;
 import java.util.Optional;
 import java.util.logging.Logger;
 
+import es.um.sisdist.backend.Service.MetricsManager;
 import es.um.sisdist.backend.grpc.GrpcServiceGrpc;
 import es.um.sisdist.backend.grpc.PingRequest;
 import es.um.sisdist.backend.grpc.chat.LlamaChatServiceGrpc;
@@ -97,6 +98,10 @@ public class AppLogicImpl
     public PromptResponse sendPrompt(int userId, String dialogueId, String prompt)
     {
         logger.info("Sending prompt via gRPC – user=" + userId + " dialogue=" + dialogueId);
+        
+        // Registrar métrica
+        MetricsManager.getInstance().getRegistry().counter("ssdd_backend_prompts_total").increment();
+
         var request = PromptRequest.newBuilder()
                 .setUserId(userId)
                 .setDialogueId(dialogueId)
