@@ -14,7 +14,7 @@ import jakarta.ws.rs.core.Response;
  *
  * POST /chat  →  llama a AppLogicImpl.sendPrompt  →  gRPC LlamaChatService  →  dummy/real
  *
- * NOTA: Para esta entrega NO se valida JWT. La cabecera Authorization se ignora.
+ * JWT validado por JwtAuthFilter antes de llegar aquí.
  */
 @Path("/chat")
 public class ChatEndpoint
@@ -62,7 +62,6 @@ public class ChatEndpoint
                     .entity(new PromptResponseDTO(false, "El campo 'prompt' es obligatorio"))
                     .build();
 
-        // Si no se proporciona userId se asigna un valor por defecto (sin JWT en esta entrega)
         int userId = req.userId > 0 ? req.userId : 1;
         String dialogueId = (req.dialogueId != null && !req.dialogueId.isBlank())
                 ? req.dialogueId : "default-dialogue";
