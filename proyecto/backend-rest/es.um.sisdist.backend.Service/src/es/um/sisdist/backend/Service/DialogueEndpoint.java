@@ -294,6 +294,7 @@ public class DialogueEndpoint
             }
 
             return Response.status(201)
+                    .header("Location", "/u/" + userId + "/dialogue/" + dialogueName)
                     .entity("{\"status\":\"accepted\",\"message\":" + mapper.writeValueAsString(answer) + "}")
                     .build();
         }
