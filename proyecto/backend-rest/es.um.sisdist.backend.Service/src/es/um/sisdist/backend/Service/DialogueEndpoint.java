@@ -1,6 +1,7 @@
 package es.um.sisdist.backend.Service;
 
 import es.um.sisdist.backend.Service.impl.AppLogicImpl;
+import es.um.sisdist.backend.grpc.chat.PromptResponse;
 import es.um.sisdist.models.DialogueDTO;
 import es.um.sisdist.models.MessageDTO;
 import jakarta.ws.rs.*;
@@ -240,18 +241,31 @@ public class DialogueEndpoint
             if (prompt.isEmpty())
                 return Response.status(400).entity("{\"error\":\"prompt is required\"}").build();
 
-            // Obtener diálogo y verificar estado
             DialogueDTO dialogue = getDialogueFromDB(userId, dialogueName);
             if (dialogue == null)
                 return Response.status(404).entity("{\"error\":\"Dialogue not found\"}").build();
 
-            // Agregar mensaje del usuario a la BD
+            if ("BUSY".equals(dialogue.status))
+                return Response.status(409).entity("{\"error\":\"Dialogue is busy\"}").build();
+
             addMessageToDB(dialogue.id, "user", prompt);
+            updateDialogueStatus(dialogue.id, "BUSY");
 
-            // Llamar al servicio gRPC para obtener respuesta
-            impl.sendPrompt(userId, dialogueName, prompt);
+            String answer;
+            try
+            {
+                PromptResponse grpcResponse = impl.sendPrompt(userId, dialogueName, prompt);
+                answer = grpcResponse.getMessage();
+                addMessageToDB(dialogue.id, "assistant", answer);
+            }
+            finally
+            {
+                updateDialogueStatus(dialogue.id, "READY");
+            }
 
-            return Response.status(201).entity("{\"status\":\"accepted\"}").build();
+            return Response.status(201)
+                    .entity("{\"status\":\"accepted\",\"message\":" + mapper.writeValueAsString(answer) + "}")
+                    .build();
         }
         catch (Exception e)
         {
@@ -349,6 +363,17 @@ public class DialogueEndpoint
             pstmt.setInt(1, dialogueId);
             pstmt.setString(2, role);
             pstmt.setString(3, content);
+            pstmt.executeUpdate();
+        }
+    }
+
+    private void updateDialogueStatus(int dialogueId, String status) throws SQLException
+    {
+        String sql = "UPDATE dialogues SET status = ? WHERE id = ?";
+        try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql))
+        {
+            pstmt.setString(1, status);
+            pstmt.setInt(2, dialogueId);
             pstmt.executeUpdate();
         }
     }
