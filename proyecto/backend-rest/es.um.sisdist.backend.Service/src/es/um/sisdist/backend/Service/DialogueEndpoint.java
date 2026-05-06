@@ -227,6 +227,33 @@ public class DialogueEndpoint
     }
 
     /**
+     * POST /u/{userId}/dialogue/{dialogueName}/end
+     * Marca el diálogo como FINISHED
+     */
+    @POST
+    @Path("/{dialogueName}/end")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response endDialogue(@PathParam("userId") int userId, @PathParam("dialogueName") String dialogueName)
+    {
+        try
+        {
+            DialogueDTO dialogue = getDialogueFromDB(userId, dialogueName);
+            if (dialogue == null)
+                return Response.status(404).entity("{\"error\":\"Dialogue not found\"}").build();
+
+            if ("FINISHED".equals(dialogue.status))
+                return Response.ok("{\"status\":\"finished\"}").build();
+
+            updateDialogueStatus(dialogue.id, "FINISHED");
+            return Response.ok("{\"status\":\"finished\"}").build();
+        }
+        catch (Exception e)
+        {
+            return Response.status(500).entity("{\"error\":\"" + e.getMessage() + "\"}").build();
+        }
+    }
+
+    /**
      * POST /u/{userId}/dialogue/{dialogueName}/next
      * Envía un prompt al diálogo
      */
