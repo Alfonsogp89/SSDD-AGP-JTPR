@@ -1,23 +1,12 @@
 package es.um.sisdist.backend.dao.models.utils;
 
-import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.nio.charset.StandardCharsets;
 
 public class UserUtils
 {
-    private static MessageDigest md;
-    static
-    {
-        try
-        {
-            md = MessageDigest.getInstance("MD5");
-        } catch (NoSuchAlgorithmException e)
-        {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-    }
+    private static final String PEPPER = "ssdd-secret";
 
     private static String bytesToHex(byte[] bytes)
     {
@@ -31,10 +20,13 @@ public class UserUtils
     {
         try
         {
-            return bytesToHex(md.digest(clearpass.getBytes("UTF-8")));
-        } catch (UnsupportedEncodingException e)
+            String salted = PEPPER + ":" + clearpass;
+            MessageDigest sha = MessageDigest.getInstance("SHA-256");
+            return bytesToHex(sha.digest(salted.getBytes(StandardCharsets.UTF_8)));
+        }
+        catch (NoSuchAlgorithmException e)
         {
-            return clearpass;
+            throw new RuntimeException("SHA-256 not available", e);
         }
     }
 }
