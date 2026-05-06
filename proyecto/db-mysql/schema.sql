@@ -22,7 +22,6 @@ CREATE TABLE IF NOT EXISTS dialogues(
 	status ENUM('READY', 'BUSY', 'FINISHED') DEFAULT 'READY',
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	FOREIGN KEY (user_id) REFERENCES users(id),
 	UNIQUE KEY unique_user_dialogue (user_id, name)
 );
 
@@ -36,6 +35,6 @@ CREATE TABLE IF NOT EXISTS messages(
 	FOREIGN KEY (dialogue_id) REFERENCES dialogues(id) ON DELETE CASCADE
 );
 
--- CUIDADO!! AÑADO UN USUARIO PARA PROBAR, PASSWORD: "admin"
-INSERT INTO users VALUES ("dsevilla", "dsevilla@um.es", "21232f297a57a5a743894a0e4a801fc3", "diego", "TOKEN", 0);
+-- CUIDADO!! AÑADO UN USUARIO PARA PROBAR, PASSWORD: "admin" (SHA-256 de "ssdd-secret:admin")
+INSERT INTO users VALUES ("dsevilla", "dsevilla@um.es", "d78e9547227174065d53f874b809672e35789e1ccf9e7e2f769f13dab947f2fa", "diego", "TOKEN", 0);
 

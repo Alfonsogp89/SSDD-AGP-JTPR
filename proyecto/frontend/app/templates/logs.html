@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mt-5">Logs de conversaciones</h1>
+
+<div id="logs-container">
+  <p class="text-muted">Cargando...</p>
+</div>
+
+<script>
+  const USER_ID = {{ user_id }};
+  const JWT_TOKEN = {{ jwt_token | tojson }};
+
+  function authHeaders() {
+    return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + JWT_TOKEN };
+  }
+
+  async function loadLogs() {
+    const r = await fetch(`/api/u/${USER_ID}/dialogue`, { headers: authHeaders() });
+    const container = document.getElementById('logs-container');
+    if (!r.ok) { container.innerHTML = '<p class="text-danger">Error al cargar los logs.</p>'; return; }
+    const data = await r.json();
+    const dialogues = data.dialogues;
+    if (!dialogues.length) { container.innerHTML = '<p class="text-muted">No hay conversaciones.</p>'; return; }
+
+    container.innerHTML = '';
+    for (const d of dialogues) {
+      const dr = await fetch(`/api/u/${USER_ID}/dialogue/${encodeURIComponent(d.name)}`, { headers: authHeaders() });
+      const dd = dr.ok ? (await dr.json()).dialogue : d;
+
+      const card = document.createElement('div');
+      card.className = 'card mb-3';
+      const header = `
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong>${dd.name}</strong>
+          <span>
+            <span class="badge bg-secondary me-2">${dd.status}</span>
+            <button class="btn btn-sm btn-danger" onclick="deleteLog('${dd.name}', this)">Eliminar</button>
+          </span>
+        </div>`;
+      const msgs = (dd.messages || []).map(m =>
+        `<div class="mb-1"><strong>${m.role}:</strong> ${m.content}</div>`
+      ).join('') || '<em class="text-muted">Sin mensajes</em>';
+      card.innerHTML = header + `<div class="card-body" style="max-height:200px;overflow-y:auto">${msgs}</div>`;
+      container.appendChild(card);
+    }
+  }
+
+  async function deleteLog(name, btn) {
+    if (!confirm(`¿Eliminar la conversación "${name}"?`)) return;
+    btn.disabled = true;
+    const r = await fetch(`/api/u/${USER_ID}/dialogue/${encodeURIComponent(name)}`, { method: 'DELETE', headers: authHeaders() });
+    if (r.ok) { await loadLogs(); }
+    else { btn.disabled = false; alert('Error al eliminar.'); }
+  }
+
+  window.onload = loadLogs;
+</script>
+{% endblock %}

@@ -1,6 +1,7 @@
 package es.um.sisdist.backend.Service;
 
 import es.um.sisdist.backend.Service.impl.AppLogicImpl;
+import es.um.sisdist.backend.grpc.chat.PromptResponse;
 import es.um.sisdist.models.DialogueDTO;
 import es.um.sisdist.models.MessageDTO;
 import jakarta.ws.rs.*;
@@ -8,9 +9,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.sql.*;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -75,7 +74,10 @@ public class DialogueEndpoint
                 pstmt.executeUpdate();
             }
 
-            return Response.status(201).entity("{\"status\":\"created\",\"name\":\"" + dialogueName + "\"}").build();
+            return Response.status(201)
+                    .header("Location", "/u/" + userId + "/dialogue/" + dialogueName)
+                    .entity("{\"status\":\"created\",\"name\":\"" + dialogueName + "\"}")
+                    .build();
         }
         catch (SQLException e)
         {
@@ -193,6 +195,33 @@ public class DialogueEndpoint
     }
 
     /**
+     * POST /u/{userId}/dialogue/{dialogueName}/end
+     * Marca el diálogo como FINISHED
+     */
+    @POST
+    @Path("/{dialogueName}/end")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response endDialogue(@PathParam("userId") int userId, @PathParam("dialogueName") String dialogueName)
+    {
+        try
+        {
+            DialogueDTO dialogue = getDialogueFromDB(userId, dialogueName);
+            if (dialogue == null)
+                return Response.status(404).entity("{\"error\":\"Dialogue not found\"}").build();
+
+            if ("FINISHED".equals(dialogue.status))
+                return Response.ok("{\"status\":\"finished\"}").build();
+
+            updateDialogueStatus(dialogue.id, "FINISHED");
+            return Response.ok("{\"status\":\"finished\"}").build();
+        }
+        catch (Exception e)
+        {
+            return Response.status(500).entity("{\"error\":\"" + e.getMessage() + "\"}").build();
+        }
+    }
+
+    /**
      * POST /u/{userId}/dialogue/{dialogueName}/next
      * Envía un prompt al diálogo
      */
@@ -210,18 +239,32 @@ public class DialogueEndpoint
             if (prompt.isEmpty())
                 return Response.status(400).entity("{\"error\":\"prompt is required\"}").build();
 
-            // Obtener diálogo y verificar estado
             DialogueDTO dialogue = getDialogueFromDB(userId, dialogueName);
             if (dialogue == null)
                 return Response.status(404).entity("{\"error\":\"Dialogue not found\"}").build();
 
-            // Agregar mensaje del usuario a la BD
-            addMessageToDB(dialogue.id, "user", prompt);
+            if ("BUSY".equals(dialogue.status))
+                return Response.status(409).entity("{\"error\":\"Dialogue is busy\"}").build();
 
-            // Llamar al servicio gRPC para obtener respuesta
-            impl.sendPrompt(userId, dialogueName, prompt);
-            
-            return Response.status(201).entity("{\"status\":\"accepted\"}").build();
+            addMessageToDB(dialogue.id, "user", prompt);
+            updateDialogueStatus(dialogue.id, "BUSY");
+
+            String answer;
+            try
+            {
+                PromptResponse grpcResponse = impl.sendPrompt(userId, dialogueName, prompt);
+                answer = grpcResponse.getMessage();
+                addMessageToDB(dialogue.id, "assistant", answer);
+            }
+            finally
+            {
+                updateDialogueStatus(dialogue.id, "READY");
+            }
+
+            return Response.status(201)
+                    .header("Location", "/u/" + userId + "/dialogue/" + dialogueName)
+                    .entity("{\"status\":\"accepted\",\"message\":" + mapper.writeValueAsString(answer) + "}")
+                    .build();
         }
         catch (Exception e)
         {
@@ -311,13 +354,9 @@ public class DialogueEndpoint
         return messages;
     }
 
-    /**
-     * Agrega mensaje a un diálogo
-     */
     private void addMessageToDB(int dialogueId, String role, String content) throws SQLException
     {
         String sql = "INSERT INTO messages (dialogue_id, role, content) VALUES (?, ?, ?)";
-
         try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql))
         {
             pstmt.setInt(1, dialogueId);
@@ -327,19 +366,19 @@ public class DialogueEndpoint
         }
     }
 
-    /**
-     * Obtiene conexión a BD
-     */
+    private void updateDialogueStatus(int dialogueId, String status) throws SQLException
+    {
+        String sql = "UPDATE dialogues SET status = ? WHERE id = ?";
+        try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql))
+        {
+            pstmt.setString(1, status);
+            pstmt.setInt(2, dialogueId);
+            pstmt.executeUpdate();
+        }
+    }
+
     private Connection getConnection() throws SQLException
     {
-        String url = System.getenv("DATABASE_URL");
-        if (url == null)
-            url = "jdbc:mysql://db-mysql:3306/ssdd?useSSL=false&serverTimezone=UTC";
-
-        String user = System.getenv("MYSQL_USER") != null ? System.getenv("MYSQL_USER") : "root";
-        String pass = System.getenv("MYSQL_PASSWORD") != null ? System.getenv("MYSQL_PASSWORD") : 
-                     (System.getenv("MYSQL_ROOT_PASSWORD") != null ? System.getenv("MYSQL_ROOT_PASSWORD") : "");
-
-        return DriverManager.getConnection(url, user, pass);
+        return DBConnectionPool.getConnection();
     }
 }

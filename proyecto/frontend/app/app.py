@@ -1,6 +1,7 @@
 from flask import Flask, render_template, send_from_directory, url_for, request, redirect, session, jsonify, Response
 from functools import wraps
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
+from prometheus_flask_exporter import PrometheusMetrics
 import requests
 import os
 import jwt
@@ -15,6 +16,7 @@ from forms import LoginForm, RegisterForm
 from models_db import db, User, get_user_by_email, create_user
 
 app = Flask(__name__, static_url_path='')
+PrometheusMetrics(app)
 login_manager = LoginManager()
 login_manager.login_view = 'login'
 login_manager.init_app(app)  # Para mantener la sesión
@@ -29,9 +31,6 @@ db.init_app(app)
 # Ensure tables are created when the app module is imported (works with flask run)
 with app.app_context():
     db.create_all()
-
-# Simple counters for metrics
-app.metrics = {'chat_requests_total': 0}
 
 
 @app.route('/static/<path:path>')
@@ -103,6 +102,10 @@ def get_auth_headers():
 def decode_jwt(token):
     return jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
 
+def _backend_rest_base():
+    url = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8080/Service/chat')
+    return url.rsplit('/chat', 1)[0]
+
 def serialize_message(m):
     return {
         'role': m.role,
@@ -163,6 +166,20 @@ def load_user(user_id):
         return None
 
 
+@app.route('/logs')
+@login_required
+def logs():
+    if not session.get('jwt_token'):
+        session['jwt_token'] = generate_jwt(current_user.id)
+    return render_template('logs.html', user_id=current_user.id, jwt_token=session.get('jwt_token'))
+
+
+@app.route('/stats')
+@login_required
+def stats():
+    return render_template('stats.html')
+
+
 @app.route('/chat')
 @login_required
 def chat():
@@ -178,8 +195,6 @@ def chat_send():
     prompt = request.form.get('prompt')
     if not prompt:
         return redirect(url_for('chat'))
-    app.metrics['chat_requests_total'] += 1
-
     prompt_service = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8180/prompt')
     headers = {}
     token = session.get('jwt_token')
@@ -230,6 +245,13 @@ def api_create_dialogue(user_id):
     data = request.get_json(silent=True) or {}
     name = data.get('name') or f'dialogue-{user_id}'
     dlg = create_dialogue(user, name)
+    # Mirror creation in MySQL (source of truth for persistence)
+    try:
+        base = _backend_rest_base()
+        requests.post(f"{base}/u/{user_id}/dialogue", json={'name': name},
+                      headers=get_auth_headers(), timeout=5)
+    except Exception:
+        pass
     return jsonify({'dialogue': serialize_dialogue(dlg)}), 201
 
 
@@ -263,11 +285,10 @@ def api_delete_dialogue(user_id, dname):
         db.session.delete(dlg)
         db.session.commit()
         
-    # Intentar eliminar también del backend REST Java
-    prompt_service = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8180/prompt')
-    backend_url = prompt_service.replace("/chat", f"/u/{user_id}/dialogue/{dname}")
+    # Eliminar también del backend REST Java (MySQL)
     try:
-        requests.delete(backend_url, timeout=10)
+        base = _backend_rest_base()
+        requests.delete(f"{base}/u/{user_id}/dialogue/{dname}", timeout=10)
     except Exception:
         pass
 
@@ -299,43 +320,36 @@ def api_dialogue_next(user_id, dname):
     db.session.commit()
     add_message(dlg, 'user', prompt)
 
-    # background worker to call prompt service and add assistant message
-    prompt_service = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8180/prompt')
-
-    def worker(dialogue_id, prompt_text):
+    def worker(dialogue_id, prompt_text, uid, dname_str):
+        content = None
         try:
+            # Call the dialogue endpoint so MySQL becomes the source of truth
+            base = _backend_rest_base()
             resp = requests.post(
-                prompt_service,
+                f"{base}/u/{uid}/dialogue/{dname_str}/next",
                 json={'prompt': prompt_text},
                 headers={'Content-Type': 'application/json'},
-                timeout=30
+                timeout=120
             )
-            content = None
             if resp.status_code in (200, 201):
                 try:
                     rdata = resp.json()
-                    # ChatEndpoint devuelve PromptResponseDTO con campo 'message'
                     content = rdata.get('message') or rdata.get('answer') or rdata.get('response') or resp.text
                 except Exception:
                     content = resp.text
             else:
                 content = f'Upstream error {resp.status_code}: {resp.text}'
-            # re-open app context to access DB
-            with app.app_context():
-                dlg2 = Dialogue.query.get(dialogue_id)
-                if dlg2:
-                    add_message(dlg2, 'assistant', content)
-                    dlg2.status = 'READY'
-                    db.session.commit()
         except Exception as ex:
-            with app.app_context():
-                dlg2 = Dialogue.query.get(dialogue_id)
-                if dlg2:
-                    add_message(dlg2, 'assistant', f'Error contacting prompt service: {ex}')
-                    dlg2.status = 'READY'
-                    db.session.commit()
+            content = f'Error contacting backend: {ex}'
+        # Mirror assistant message to SQLite for UI display
+        with app.app_context():
+            dlg2 = Dialogue.query.get(dialogue_id)
+            if dlg2:
+                add_message(dlg2, 'assistant', content)
+                dlg2.status = 'READY'
+                db.session.commit()
 
-    t = threading.Thread(target=worker, args=(dlg.id, prompt))
+    t = threading.Thread(target=worker, args=(dlg.id, prompt, user_id, dname))
     t.daemon = True
     t.start()
 
@@ -377,22 +391,6 @@ def api_chat_send():
     return Response(resp.content, status=resp.status_code, content_type=content_type)
 
 
-
-@app.route('/metrics')
-def metrics():
-    # Return simple Prometheus plain-text metrics
-    lines = []
-    lines.append('# HELP ssdd_chat_requests_total Number of chat requests')
-    lines.append('# TYPE ssdd_chat_requests_total counter')
-    lines.append(f"ssdd_chat_requests_total {app.metrics['chat_requests_total']}")
-    lines.append('# HELP ssdd_active_users Current number of registered users')
-    lines.append('# TYPE ssdd_active_users gauge')
-    try:
-        users_count = User.query.count()
-    except Exception:
-        users_count = 0
-    lines.append(f"ssdd_active_users {users_count}")
-    return "\n".join(lines), 200, {'Content-Type': 'text/plain; version=0.0.4'}
 
 
 if __name__ == '__main__':
