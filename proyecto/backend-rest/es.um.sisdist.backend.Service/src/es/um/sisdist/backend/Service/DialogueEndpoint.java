@@ -106,7 +106,10 @@ public class DialogueEndpoint
                 pstmt.executeUpdate();
             }
 
-            return Response.status(201).entity("{\"status\":\"created\",\"name\":\"" + dialogueName + "\"}").build();
+            return Response.status(201)
+                    .header("Location", "/u/" + userId + "/dialogue/" + dialogueName)
+                    .entity("{\"status\":\"created\",\"name\":\"" + dialogueName + "\"}")
+                    .build();
         }
         catch (SQLException e)
         {
