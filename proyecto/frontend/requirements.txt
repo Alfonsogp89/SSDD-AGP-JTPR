@@ -4,6 +4,7 @@ flask-WTF>=1.2.1
 requests
 email_validator>=2.1
 pyjwt
+prometheus-flask-exporter
 
 selenium>=4.8.0
 webdriver-manager>=4.0.0

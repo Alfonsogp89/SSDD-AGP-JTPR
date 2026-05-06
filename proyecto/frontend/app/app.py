@@ -1,6 +1,7 @@
 from flask import Flask, render_template, send_from_directory, url_for, request, redirect, session, jsonify, Response
 from functools import wraps
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
+from prometheus_flask_exporter import PrometheusMetrics
 import requests
 import os
 import jwt
@@ -15,6 +16,7 @@ from forms import LoginForm, RegisterForm
 from models_db import db, User, get_user_by_email, create_user
 
 app = Flask(__name__, static_url_path='')
+PrometheusMetrics(app)
 login_manager = LoginManager()
 login_manager.login_view = 'login'
 login_manager.init_app(app)  # Para mantener la sesión
@@ -29,9 +31,6 @@ db.init_app(app)
 # Ensure tables are created when the app module is imported (works with flask run)
 with app.app_context():
     db.create_all()
-
-# Simple counters for metrics
-app.metrics = {'chat_requests_total': 0}
 
 
 @app.route('/static/<path:path>')
@@ -192,8 +191,6 @@ def chat_send():
     prompt = request.form.get('prompt')
     if not prompt:
         return redirect(url_for('chat'))
-    app.metrics['chat_requests_total'] += 1
-
     prompt_service = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8180/prompt')
     headers = {}
     token = session.get('jwt_token')
@@ -313,7 +310,6 @@ def api_dialogue_next(user_id, dname):
     db.session.commit()
     add_message(dlg, 'user', prompt)
 
-    # background worker to call prompt service and add assistant message
     prompt_service = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8180/prompt')
 
     def worker(dialogue_id, prompt_text):
@@ -328,13 +324,11 @@ def api_dialogue_next(user_id, dname):
             if resp.status_code in (200, 201):
                 try:
                     rdata = resp.json()
-                    # ChatEndpoint devuelve PromptResponseDTO con campo 'message'
                     content = rdata.get('message') or rdata.get('answer') or rdata.get('response') or resp.text
                 except Exception:
                     content = resp.text
             else:
                 content = f'Upstream error {resp.status_code}: {resp.text}'
-            # re-open app context to access DB
             with app.app_context():
                 dlg2 = Dialogue.query.get(dialogue_id)
                 if dlg2:
@@ -391,22 +385,6 @@ def api_chat_send():
     return Response(resp.content, status=resp.status_code, content_type=content_type)
 
 
-
-@app.route('/metrics')
-def metrics():
-    # Return simple Prometheus plain-text metrics
-    lines = []
-    lines.append('# HELP ssdd_chat_requests_total Number of chat requests')
-    lines.append('# TYPE ssdd_chat_requests_total counter')
-    lines.append(f"ssdd_chat_requests_total {app.metrics['chat_requests_total']}")
-    lines.append('# HELP ssdd_active_users Current number of registered users')
-    lines.append('# TYPE ssdd_active_users gauge')
-    try:
-        users_count = User.query.count()
-    except Exception:
-        users_count = 0
-    lines.append(f"ssdd_active_users {users_count}")
-    return "\n".join(lines), 200, {'Content-Type': 'text/plain; version=0.0.4'}
 
 
 if __name__ == '__main__':
