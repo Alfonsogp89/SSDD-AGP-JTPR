@@ -102,6 +102,10 @@ def get_auth_headers():
 def decode_jwt(token):
     return jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
 
+def _backend_rest_base():
+    url = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8080/Service/chat')
+    return url.rsplit('/chat', 1)[0]
+
 def serialize_message(m):
     return {
         'role': m.role,
@@ -241,6 +245,13 @@ def api_create_dialogue(user_id):
     data = request.get_json(silent=True) or {}
     name = data.get('name') or f'dialogue-{user_id}'
     dlg = create_dialogue(user, name)
+    # Mirror creation in MySQL (source of truth for persistence)
+    try:
+        base = _backend_rest_base()
+        requests.post(f"{base}/u/{user_id}/dialogue", json={'name': name},
+                      headers=get_auth_headers(), timeout=5)
+    except Exception:
+        pass
     return jsonify({'dialogue': serialize_dialogue(dlg)}), 201
 
 
@@ -274,11 +285,10 @@ def api_delete_dialogue(user_id, dname):
         db.session.delete(dlg)
         db.session.commit()
         
-    # Intentar eliminar también del backend REST Java
-    prompt_service = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8180/prompt')
-    backend_url = prompt_service.replace("/chat", f"/u/{user_id}/dialogue/{dname}")
+    # Eliminar también del backend REST Java (MySQL)
     try:
-        requests.delete(backend_url, timeout=10)
+        base = _backend_rest_base()
+        requests.delete(f"{base}/u/{user_id}/dialogue/{dname}", timeout=10)
     except Exception:
         pass
 
@@ -310,17 +320,17 @@ def api_dialogue_next(user_id, dname):
     db.session.commit()
     add_message(dlg, 'user', prompt)
 
-    prompt_service = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8180/prompt')
-
-    def worker(dialogue_id, prompt_text):
+    def worker(dialogue_id, prompt_text, uid, dname_str):
+        content = None
         try:
+            # Call the dialogue endpoint so MySQL becomes the source of truth
+            base = _backend_rest_base()
             resp = requests.post(
-                prompt_service,
+                f"{base}/u/{uid}/dialogue/{dname_str}/next",
                 json={'prompt': prompt_text},
                 headers={'Content-Type': 'application/json'},
-                timeout=30
+                timeout=120
             )
-            content = None
             if resp.status_code in (200, 201):
                 try:
                     rdata = resp.json()
@@ -329,21 +339,17 @@ def api_dialogue_next(user_id, dname):
                     content = resp.text
             else:
                 content = f'Upstream error {resp.status_code}: {resp.text}'
-            with app.app_context():
-                dlg2 = Dialogue.query.get(dialogue_id)
-                if dlg2:
-                    add_message(dlg2, 'assistant', content)
-                    dlg2.status = 'READY'
-                    db.session.commit()
         except Exception as ex:
-            with app.app_context():
-                dlg2 = Dialogue.query.get(dialogue_id)
-                if dlg2:
-                    add_message(dlg2, 'assistant', f'Error contacting prompt service: {ex}')
-                    dlg2.status = 'READY'
-                    db.session.commit()
+            content = f'Error contacting backend: {ex}'
+        # Mirror assistant message to SQLite for UI display
+        with app.app_context():
+            dlg2 = Dialogue.query.get(dialogue_id)
+            if dlg2:
+                add_message(dlg2, 'assistant', content)
+                dlg2.status = 'READY'
+                db.session.commit()
 
-    t = threading.Thread(target=worker, args=(dlg.id, prompt))
+    t = threading.Thread(target=worker, args=(dlg.id, prompt, user_id, dname))
     t.daemon = True
     t.start()
 
