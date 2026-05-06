@@ -36,6 +36,10 @@ public class JwtAuthFilter implements ContainerRequestFilter
                 return;
         }
 
+        // El registro de usuario es público (POST /u exacto)
+        if ("POST".equals(ctx.getMethod()) && "/Service/u".equals(path))
+            return;
+
         String authHeader = ctx.getHeaderString(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.toLowerCase().startsWith("bearer "))
         {
