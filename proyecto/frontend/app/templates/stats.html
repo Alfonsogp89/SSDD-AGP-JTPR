@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mt-5">Estadísticas de acceso</h1>
+
+<div class="row mt-3">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">Métricas del frontend</div>
+      <div class="card-body">
+        <pre id="metrics-raw" class="bg-light p-3" style="font-size:0.85rem">Cargando...</pre>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">Resumen</div>
+      <div class="card-body">
+        <table class="table table-sm">
+          <tbody id="metrics-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function loadMetrics() {
+    const r = await fetch('/metrics');
+    const raw = document.getElementById('metrics-raw');
+    const table = document.getElementById('metrics-table');
+    if (!r.ok) { raw.textContent = 'Error al obtener métricas.'; return; }
+    const text = await r.text();
+    raw.textContent = text;
+
+    table.innerHTML = '';
+    text.split('\n').filter(l => l && !l.startsWith('#')).forEach(line => {
+      const [name, value] = line.split(' ');
+      if (!name) return;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><code>${name}</code></td><td><strong>${value}</strong></td>`;
+      table.appendChild(tr);
+    });
+  }
+
+  window.onload = loadMetrics;
+</script>
+{% endblock %}

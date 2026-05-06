@@ -163,6 +163,20 @@ def load_user(user_id):
         return None
 
 
+@app.route('/logs')
+@login_required
+def logs():
+    if not session.get('jwt_token'):
+        session['jwt_token'] = generate_jwt(current_user.id)
+    return render_template('logs.html', user_id=current_user.id, jwt_token=session.get('jwt_token'))
+
+
+@app.route('/stats')
+@login_required
+def stats():
+    return render_template('stats.html')
+
+
 @app.route('/chat')
 @login_required
 def chat():
