@@ -9,7 +9,9 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.Random;
 
 @Path("/u")
@@ -71,12 +73,6 @@ public class UsersEndpoint
 
     private Connection getConnection() throws SQLException
     {
-        String url = System.getenv("DATABASE_URL");
-        if (url == null)
-            url = "jdbc:mysql://db-mysql:3306/ssdd?useSSL=false&serverTimezone=UTC";
-        String user = System.getenv("MYSQL_USER") != null ? System.getenv("MYSQL_USER") : "root";
-        String pass = System.getenv("MYSQL_PASSWORD") != null ? System.getenv("MYSQL_PASSWORD")
-                : (System.getenv("MYSQL_ROOT_PASSWORD") != null ? System.getenv("MYSQL_ROOT_PASSWORD") : "");
-        return DriverManager.getConnection(url, user, pass);
+        return DBConnectionPool.getConnection();
     }
 }

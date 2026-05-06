@@ -9,9 +9,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
-
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,35 +29,6 @@ public class DialogueEndpoint
     private AppLogicImpl impl = AppLogicImpl.getInstance();
     private ObjectMapper mapper = new ObjectMapper()
             .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
-
-    private static volatile HikariDataSource dataSource;
-
-    private static HikariDataSource getDataSource()
-    {
-        if (dataSource == null)
-        {
-            synchronized (DialogueEndpoint.class)
-            {
-                if (dataSource == null)
-                {
-                    String url = System.getenv("DATABASE_URL");
-                    if (url == null)
-                        url = "jdbc:mysql://db-mysql:3306/ssdd?useSSL=false&serverTimezone=UTC";
-                    String user = System.getenv("MYSQL_USER") != null ? System.getenv("MYSQL_USER") : "root";
-                    String pass = System.getenv("MYSQL_PASSWORD") != null ? System.getenv("MYSQL_PASSWORD")
-                                : (System.getenv("MYSQL_ROOT_PASSWORD") != null ? System.getenv("MYSQL_ROOT_PASSWORD") : "");
-                    HikariConfig cfg = new HikariConfig();
-                    cfg.setJdbcUrl(url);
-                    cfg.setUsername(user);
-                    cfg.setPassword(pass);
-                    cfg.setMaximumPoolSize(10);
-                    cfg.setMinimumIdle(2);
-                    dataSource = new HikariDataSource(cfg);
-                }
-            }
-        }
-        return dataSource;
-    }
 
     /**
      * GET /u/{userId}/dialogue
@@ -411,6 +379,6 @@ public class DialogueEndpoint
 
     private Connection getConnection() throws SQLException
     {
-        return getDataSource().getConnection();
+        return DBConnectionPool.getConnection();
     }
 }
