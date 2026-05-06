@@ -28,6 +28,7 @@
     <div class="input-group mt-3">
       <input id="prompt-input" class="form-control" placeholder="Type your prompt...">
       <button id="send-prompt" class="btn btn-primary">Send</button>
+      <button id="end-dialogue" class="btn btn-outline-danger" title="Terminar conversación" disabled>End</button>
     </div>
   </div>
 </div>
@@ -114,7 +115,8 @@
     const r = await fetch(`/api/u/${USER_ID}/dialogue/${encodeURIComponent(selectedDialogue)}`, { headers: getAuthHeaders() });
     if (!r.ok) return;
     const data = await r.json();
-    const msgs = data.dialogue.messages || [];
+    const dlg = data.dialogue;
+    const msgs = dlg.messages || [];
     const box = document.getElementById('messages');
     box.innerHTML = '';
     msgs.forEach(m => {
@@ -123,6 +125,27 @@
       box.appendChild(p);
     });
     box.scrollTop = box.scrollHeight;
+
+    const finished = dlg.status === 'FINISHED';
+    document.getElementById('prompt-input').disabled = finished;
+    document.getElementById('send-prompt').disabled = finished;
+    document.getElementById('end-dialogue').disabled = finished || !selectedDialogue;
+    if (finished) {
+      document.getElementById('dialogue-title').textContent = selectedDialogue + ' [FINALIZADO]';
+    }
+  }
+
+  async function endDialogue() {
+    if (!selectedDialogue) return;
+    if (!confirm(`¿Terminar la conversación "${selectedDialogue}"?`)) return;
+    const r = await fetch(`/api/u/${USER_ID}/dialogue/${encodeURIComponent(selectedDialogue)}/end`,
+      { method: 'POST', headers: getAuthHeaders() });
+    if (r.ok) {
+      await refreshMessages();
+      await fetchDialogues();
+    } else {
+      alert('Error al terminar la conversación.');
+    }
   }
 
   async function sendPrompt() {
@@ -168,6 +191,7 @@
 
   document.getElementById('create-dialogue').onclick = createDialogue;
   document.getElementById('send-prompt').onclick = sendPrompt;
+  document.getElementById('end-dialogue').onclick = endDialogue;
   window.onload = async () => { await fetchDialogues(); };
 </script>
 
