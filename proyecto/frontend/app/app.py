@@ -61,7 +61,7 @@ def register():
 
 def generate_jwt(user_id, expire_minutes=30):
     payload = {
-        'sub': int(user_id),
+        'sub': str(user_id),
         'iat': datetime.datetime.utcnow(),
         'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=expire_minutes)
     }
@@ -323,7 +323,10 @@ def api_dialogue_next(user_id, dname):
     db.session.commit()
     add_message(dlg, 'user', prompt)
 
-    def worker(dialogue_id, prompt_text, uid, dname_str):
+    # Capture token before leaving the request context
+    jwt_token = session.get('jwt_token') or generate_jwt(user_id)
+
+    def worker(dialogue_id, prompt_text, uid, dname_str, token):
         content = None
         try:
             # Call the dialogue endpoint so MySQL becomes the source of truth
@@ -331,13 +334,21 @@ def api_dialogue_next(user_id, dname):
             resp = requests.post(
                 f"{base}/u/{uid}/dialogue/{dname_str}/next",
                 json={'prompt': prompt_text},
-                headers={'Content-Type': 'application/json'},
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {token}'
+                },
                 timeout=120
             )
             if resp.status_code in (200, 201):
                 try:
                     rdata = resp.json()
-                    content = rdata.get('message') or rdata.get('answer') or rdata.get('response') or resp.text
+                    # Extract the gRPC response message; fall back to full body
+                    msg = rdata.get('message')
+                    if msg is not None:
+                        content = str(msg)
+                    else:
+                        content = rdata.get('answer') or rdata.get('response') or resp.text
                 except Exception:
                     content = resp.text
             else:
@@ -352,7 +363,7 @@ def api_dialogue_next(user_id, dname):
                 dlg2.status = 'READY'
                 db.session.commit()
 
-    t = threading.Thread(target=worker, args=(dlg.id, prompt, user_id, dname))
+    t = threading.Thread(target=worker, args=(dlg.id, prompt, user_id, dname, jwt_token))
     t.daemon = True
     t.start()
 
