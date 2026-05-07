@@ -296,6 +296,53 @@ def api_delete_dialogue(user_id, dname):
     return jsonify({'status': 'deleted'})
 
 
+def execute_background_task(app, dialogue_id, prompt_text, uid, dname_str, token):
+    content = None
+    app.logger.info(f"[WORKER] Starting request for user {uid}, dialogue {dname_str}")
+    try:
+        # Call the dialogue endpoint so MySQL becomes the source of truth
+        with app.app_context():
+            base = _backend_rest_base()
+        app.logger.info(f"[WORKER] Calling backend at {base}")
+        resp = requests.post(
+            f"{base}/u/{uid}/dialogue/{dname_str}/next",
+            json={'prompt': prompt_text},
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {token}'
+            },
+            timeout=120
+        )
+        app.logger.info(f"[WORKER] Backend responded with status {resp.status_code}")
+        if resp.status_code in (200, 201):
+            try:
+                rdata = resp.json()
+                msg = rdata.get('message')
+                if msg is not None:
+                    content = str(msg)
+                else:
+                    content = rdata.get('answer') or rdata.get('response') or resp.text
+            except Exception:
+                content = resp.text
+        else:
+            content = f'Upstream error {resp.status_code}: {resp.text}'
+    except Exception as ex:
+        app.logger.error(f"[WORKER] Error contacting backend: {ex}")
+        content = f'Error contacting backend: {ex}'
+    
+    # Mirror assistant message to SQLite for UI display
+    app.logger.info(f"[WORKER] Saving message to SQLite: {content[:50]}...")
+    with app.app_context():
+        dlg2 = Dialogue.query.get(dialogue_id)
+        if dlg2:
+            add_message(dlg2, 'assistant', content)
+            dlg2.status = 'READY'
+            db.session.commit()
+            app.logger.info(f"[WORKER] Success: Dialogue {dialogue_id} updated to READY")
+        else:
+            app.logger.error(f"[WORKER] Fatal: Dialogue {dialogue_id} not found in SQLite")
+
+
 @app.route('/api/u/<int:user_id>/dialogue/<string:dname>/next', methods=['POST'])
 @login_required
 def api_dialogue_next(user_id, dname):
@@ -326,44 +373,8 @@ def api_dialogue_next(user_id, dname):
     # Capture token before leaving the request context
     jwt_token = session.get('jwt_token') or generate_jwt(user_id)
 
-    def worker(dialogue_id, prompt_text, uid, dname_str, token):
-        content = None
-        try:
-            # Call the dialogue endpoint so MySQL becomes the source of truth
-            base = _backend_rest_base()
-            resp = requests.post(
-                f"{base}/u/{uid}/dialogue/{dname_str}/next",
-                json={'prompt': prompt_text},
-                headers={
-                    'Content-Type': 'application/json',
-                    'Authorization': f'Bearer {token}'
-                },
-                timeout=120
-            )
-            if resp.status_code in (200, 201):
-                try:
-                    rdata = resp.json()
-                    # Extract the gRPC response message; fall back to full body
-                    msg = rdata.get('message')
-                    if msg is not None:
-                        content = str(msg)
-                    else:
-                        content = rdata.get('answer') or rdata.get('response') or resp.text
-                except Exception:
-                    content = resp.text
-            else:
-                content = f'Upstream error {resp.status_code}: {resp.text}'
-        except Exception as ex:
-            content = f'Error contacting backend: {ex}'
-        # Mirror assistant message to SQLite for UI display
-        with app.app_context():
-            dlg2 = Dialogue.query.get(dialogue_id)
-            if dlg2:
-                add_message(dlg2, 'assistant', content)
-                dlg2.status = 'READY'
-                db.session.commit()
-
-    t = threading.Thread(target=worker, args=(dlg.id, prompt, user_id, dname, jwt_token))
+    app.logger.info(f"Launching worker thread for dialogue {dlg.id}")
+    t = threading.Thread(target=execute_background_task, args=(app._get_current_object(), dlg.id, prompt, user_id, dname, jwt_token))
     t.daemon = True
     t.start()
 

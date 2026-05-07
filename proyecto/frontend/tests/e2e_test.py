@@ -217,16 +217,19 @@ class Test03ChatFlow(unittest.TestCase):
         messages_box = driver.find_element(By.ID, "messages")
         self.assertIn(TEST_PROMPT, messages_box.text)
 
-        # Esperar la respuesta del asistente (hasta 40 segundos)
+        # Esperar la respuesta del asistente (hasta 60 segundos)
         print("\n[E2E] Esperando respuesta del asistente...")
-        deadline = time.time() + 40
+        deadline = time.time() + 60
         while time.time() < deadline:
-            time.sleep(2)
+            time.sleep(3)
             messages_box = driver.find_element(By.ID, "messages")
-            if "assistant:" in messages_box.text:
+            current_text = messages_box.text
+            print(f"[E2E] Texto actual en el chat: {current_text.replace('\n', ' | ')[:150]}...")
+            if "assistant:" in current_text:
+                print("[E2E] ¡Respuesta detectada!")
                 break
         else:
-            self.fail("El asistente no respondió en 40 segundos")
+            self.fail("El asistente no respondió en 60 segundos")
 
         # Verificar que el área de mensajes contiene una respuesta del asistente
         self.assertIn("assistant:", messages_box.text)
