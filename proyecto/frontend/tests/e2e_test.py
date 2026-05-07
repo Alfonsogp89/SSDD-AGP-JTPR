@@ -165,7 +165,7 @@ class Test03ChatFlow(unittest.TestCase):
 
         # El diálogo debe aparecer en la lista
         wait.until(EC.presence_of_element_located((By.ID, "dialogues")))
-        time.sleep(1)  # Esperar que la lista se actualice vía JS
+        time.sleep(2)  # Esperar que la lista se actualice vía JS
         dialogues_ul = driver.find_element(By.ID, "dialogues")
         self.assertIn(self.dialogue_name, dialogues_ul.text)
 
@@ -178,7 +178,7 @@ class Test03ChatFlow(unittest.TestCase):
         name_input = driver.find_element(By.ID, "new-dialogue-name")
         name_input.send_keys(self.dialogue_name)
         driver.find_element(By.ID, "create-dialogue").click()
-
+        time.sleep(2)
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#dialogues .list-group-item")))
         delete_btn = driver.find_element(By.CSS_SELECTOR, "#dialogues .list-group-item button.btn-danger")
         delete_btn.click()

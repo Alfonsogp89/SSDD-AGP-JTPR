@@ -6,6 +6,7 @@ import requests
 import os
 import jwt
 import threading
+import time
 from models_db import Dialogue, Message, create_dialogue, get_dialogue_by_name, add_message
 import datetime
 
@@ -374,7 +375,7 @@ def api_dialogue_next(user_id, dname):
     jwt_token = session.get('jwt_token') or generate_jwt(user_id)
 
     app.logger.info(f"Launching worker thread for dialogue {dlg.id}")
-    t = threading.Thread(target=execute_background_task, args=(app._get_current_object(), dlg.id, prompt, user_id, dname, jwt_token))
+    t = threading.Thread(target=execute_background_task, args=(app, dlg.id, prompt, user_id, dname, jwt_token))
     t.daemon = True
     t.start()
 
