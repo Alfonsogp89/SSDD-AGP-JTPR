@@ -1,7 +1,7 @@
 from flask import Flask, render_template, send_from_directory, url_for, request, redirect, session, jsonify, Response
 from functools import wraps
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
-from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
 import requests
 import os
 import jwt
@@ -16,7 +16,8 @@ from forms import LoginForm, RegisterForm
 from models_db import db, User, get_user_by_email, create_user
 
 app = Flask(__name__, static_url_path='')
-PrometheusMetrics(app)
+# Métrica de negocio personalizada: número de peticiones al chat
+CHAT_REQUESTS = Counter('ssdd_chat_requests_total', 'Number of chat prompt requests')
 login_manager = LoginManager()
 login_manager.login_view = 'login'
 login_manager.init_app(app)  # Para mantener la sesión
@@ -312,6 +313,8 @@ def api_dialogue_next(user_id, dname):
     if not prompt:
         return jsonify({'error': 'missing prompt'}), 400
 
+    CHAT_REQUESTS.inc()
+
     if dlg.status in ('BUSY', 'FINISHED'):
         return '', 204
 
@@ -391,6 +394,10 @@ def api_chat_send():
     return Response(resp.content, status=resp.status_code, content_type=content_type)
 
 
+
+@app.route('/metrics')
+def metrics():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 
 if __name__ == '__main__':
