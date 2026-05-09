@@ -13,6 +13,7 @@ services:
       - PORT=5010
       - PROMPT_SERVICE_URL=http://backend-rest:8080/Service/chat
       - FLASK_SECRET=dev-secret-change-me-ssdd-2526-ok
+      - DEBUG_METRICS=1
     volumes:
       - ./frontend:/ssdd-frontend
     depends_on:
