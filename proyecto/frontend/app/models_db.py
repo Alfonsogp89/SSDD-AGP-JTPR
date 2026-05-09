@@ -39,41 +39,5 @@ def create_user(name, email, password, is_admin=False):
     return user
 
 
-class Dialogue(db.Model):
-    __tablename__ = 'dialogues'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(200), nullable=False)
-    status = db.Column(db.String(20), nullable=False, default='READY')
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, server_default=db.func.now())
-
-    user = db.relationship('User', backref=db.backref('dialogues', lazy=True))
-    messages = db.relationship('Message', backref='dialogue', lazy=True, cascade='all, delete-orphan')
-
-
-class Message(db.Model):
-    __tablename__ = 'messages'
-    id = db.Column(db.Integer, primary_key=True)
-    dialogue_id = db.Column(db.Integer, db.ForeignKey('dialogues.id'), nullable=False)
-    role = db.Column(db.String(20), nullable=False)  # 'user' or 'assistant'
-    content = db.Column(db.Text, nullable=False)
-    timestamp = db.Column(db.DateTime, server_default=db.func.now())
-
-
-def create_dialogue(user, name):
-    dlg = Dialogue(name=name, user=user, status='READY')
-    db.session.add(dlg)
-    db.session.commit()
-    return dlg
-
-
-def get_dialogue_by_name(user, name):
-    return Dialogue.query.filter_by(user_id=user.id, name=name).first()
-
-
-def add_message(dialogue, role, content):
-    m = Message(dialogue=dialogue, role=role, content=content)
-    db.session.add(m)
-    db.session.commit()
-    return m
-### End Patch
+# Nota: Dialogue y Message se eliminaron de SQLite.
+# El backend REST Java (MySQL) es la única fuente de verdad para diálogos y mensajes.

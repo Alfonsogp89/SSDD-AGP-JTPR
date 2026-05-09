@@ -8,7 +8,7 @@ import os
 import jwt
 import threading
 import time
-from models_db import Dialogue, Message, create_dialogue, get_dialogue_by_name, add_message
+# Dialogue/Message ya no se almacenan en SQLite; el backend REST Java es la fuente de verdad
 import datetime
 
 # Login/forms
@@ -111,21 +111,40 @@ def _backend_rest_base():
     url = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8080/Service/chat')
     return url.rsplit('/chat', 1)[0]
 
-def serialize_message(m):
-    return {
-        'role': m.role,
-        'content': m.content,
-        'timestamp': m.timestamp.isoformat() if m.timestamp else None
-    }
+def _proxy_get(url, token):
+    """Proxy GET al backend REST Java y devuelve un Response de Flask."""
+    try:
+        r = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=10)
+        return r.json(), r.status_code
+    except Exception as ex:
+        return {'error': str(ex)}, 502
 
-def serialize_dialogue(d):
-    return {
-        'id': d.id,
-        'name': d.name,
-        'status': d.status,
-        'created_at': d.created_at.isoformat() if d.created_at else None,
-        'messages': [serialize_message(m) for m in d.messages]
-    }
+
+def _proxy_post(url, body, token):
+    """Proxy POST al backend REST Java y devuelve (json, status_code)."""
+    try:
+        r = requests.post(url, json=body,
+                          headers={'Content-Type': 'application/json',
+                                   'Authorization': f'Bearer {token}'},
+                          timeout=120)
+        try:
+            return r.json(), r.status_code
+        except Exception:
+            return r.text, r.status_code
+    except Exception as ex:
+        return {'error': str(ex)}, 502
+
+
+def _proxy_delete(url, token):
+    """Proxy DELETE al backend REST Java."""
+    try:
+        r = requests.delete(url, headers={'Authorization': f'Bearer {token}'}, timeout=10)
+        try:
+            return r.json(), r.status_code
+        except Exception:
+            return {}, r.status_code
+    except Exception as ex:
+        return {'error': str(ex)}, 502
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -229,14 +248,20 @@ def chat_send():
 # --- REST API endpoints (JSON) ---
 
 
+# ---------------------------------------------------------------------------
+# API /api/u/<id>/dialogue/... — proxies directos al backend REST Java.
+# El backend Java (MySQL) es la única fuente de verdad para diálogos y mensajes.
+# ---------------------------------------------------------------------------
+
 @app.route('/api/u/<int:user_id>/dialogue', methods=['GET'])
 @login_required
 def api_get_dialogue(user_id):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    dialogues = Dialogue.query.filter_by(user_id=user_id).all()
-    return jsonify({'dialogues': [serialize_dialogue(d) for d in dialogues]})
-
+    token = session.get('jwt_token') or generate_jwt(user_id)
+    base = _backend_rest_base()
+    data, status = _proxy_get(f"{base}/u/{user_id}/dialogue", token)
+    return jsonify(data), status
 
 
 @app.route('/api/u/<int:user_id>/dialogue', methods=['POST'])
@@ -244,20 +269,11 @@ def api_get_dialogue(user_id):
 def api_create_dialogue(user_id):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'user not found'}), 404
-    data = request.get_json(silent=True) or {}
-    name = data.get('name') or f'dialogue-{user_id}'
-    dlg = create_dialogue(user, name)
-    # Mirror creation in MySQL (source of truth for persistence)
-    try:
-        base = _backend_rest_base()
-        requests.post(f"{base}/u/{user_id}/dialogue", json={'name': name},
-                      headers=get_auth_headers(), timeout=5)
-    except Exception:
-        pass
-    return jsonify({'dialogue': serialize_dialogue(dlg)}), 201
+    token = session.get('jwt_token') or generate_jwt(user_id)
+    body = request.get_json(silent=True) or {}
+    base = _backend_rest_base()
+    data, status = _proxy_post(f"{base}/u/{user_id}/dialogue", body, token)
+    return jsonify(data), status
 
 
 @app.route('/api/u/<int:user_id>/dialogue/<string:dname>', methods=['GET'])
@@ -265,13 +281,10 @@ def api_create_dialogue(user_id):
 def api_get_one_dialogue(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'user not found'}), 404
-    dlg = get_dialogue_by_name(user, dname)
-    if not dlg:
-        return jsonify({'error': 'dialogue not found'}), 404
-    return jsonify({'dialogue': serialize_dialogue(dlg)})
+    token = session.get('jwt_token') or generate_jwt(user_id)
+    base = _backend_rest_base()
+    data, status = _proxy_get(f"{base}/u/{user_id}/dialogue/{dname}", token)
+    return jsonify(data), status
 
 
 @app.route('/api/u/<int:user_id>/dialogue/<string:dname>', methods=['DELETE'])
@@ -279,72 +292,31 @@ def api_get_one_dialogue(user_id, dname):
 def api_delete_dialogue(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'user not found'}), 404
-        
-    # Eliminar de la BD local de SQLite
-    dlg = get_dialogue_by_name(user, dname)
-    if dlg:
-        Message.query.filter_by(dialogue_id=dlg.id).delete()
-        db.session.delete(dlg)
-        db.session.commit()
-        
-    # Eliminar también del backend REST Java (MySQL)
+    token = session.get('jwt_token') or generate_jwt(user_id)
+    base = _backend_rest_base()
+    data, status = _proxy_delete(f"{base}/u/{user_id}/dialogue/{dname}", token)
+    return jsonify(data), status
+
+
+def execute_background_task(app, uid, dname_str, prompt_text, token):
+    """Llama al backend REST Java en un hilo separado.
+    Java gestiona BUSY→READY y guarda mensajes en MySQL.
+    El frontend lee el estado vía proxy (no guarda nada en SQLite).
+    """
     try:
-        base = _backend_rest_base()
-        requests.delete(f"{base}/u/{user_id}/dialogue/{dname}", timeout=10)
-    except Exception:
-        pass
-
-    return jsonify({'status': 'deleted'})
-
-
-def execute_background_task(app, dialogue_id, prompt_text, uid, dname_str, token):
-    content = None
-    app.logger.info(f"[WORKER] Starting request for user {uid}, dialogue {dname_str}")
-    try:
-        # Call the dialogue endpoint so MySQL becomes the source of truth
         with app.app_context():
             base = _backend_rest_base()
-        app.logger.info(f"[WORKER] Calling backend at {base}")
-        resp = requests.post(
+        app.logger.info(f"[WORKER] POST {base}/u/{uid}/dialogue/{dname_str}/next")
+        requests.post(
             f"{base}/u/{uid}/dialogue/{dname_str}/next",
             json={'prompt': prompt_text},
-            headers={
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {token}'
-            },
+            headers={'Content-Type': 'application/json',
+                     'Authorization': f'Bearer {token}'},
             timeout=120
         )
-        app.logger.info(f"[WORKER] Backend responded with status {resp.status_code}")
-        if resp.status_code in (200, 201):
-            try:
-                rdata = resp.json()
-                msg = rdata.get('message')
-                if msg is not None:
-                    content = str(msg)
-                else:
-                    content = rdata.get('answer') or rdata.get('response') or resp.text
-            except Exception:
-                content = resp.text
-        else:
-            content = f'Upstream error {resp.status_code}: {resp.text}'
+        app.logger.info(f"[WORKER] Backend respondió OK para user={uid} dialogue={dname_str}")
     except Exception as ex:
-        app.logger.error(f"[WORKER] Error contacting backend: {ex}")
-        content = f'Error contacting backend: {ex}'
-    
-    # Mirror assistant message to SQLite for UI display
-    app.logger.info(f"[WORKER] Saving message to SQLite: {content[:50]}...")
-    with app.app_context():
-        dlg2 = Dialogue.query.get(dialogue_id)
-        if dlg2:
-            add_message(dlg2, 'assistant', content)
-            dlg2.status = 'READY'
-            db.session.commit()
-            app.logger.info(f"[WORKER] Success: Dialogue {dialogue_id} updated to READY")
-        else:
-            app.logger.error(f"[WORKER] Fatal: Dialogue {dialogue_id} not found in SQLite")
+        app.logger.error(f"[WORKER] Error contactando backend: {ex}")
 
 
 @app.route('/api/u/<int:user_id>/dialogue/<string:dname>/next', methods=['POST'])
@@ -352,13 +324,6 @@ def execute_background_task(app, dialogue_id, prompt_text, uid, dname_str, token
 def api_dialogue_next(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'user not found'}), 404
-    dlg = get_dialogue_by_name(user, dname)
-    if not dlg:
-        return jsonify({'error': 'dialogue not found'}), 404
-
     data = request.get_json(silent=True) or {}
     prompt = data.get('prompt')
     if not prompt:
@@ -366,22 +331,13 @@ def api_dialogue_next(user_id, dname):
 
     CHAT_REQUESTS.inc()
 
-    if dlg.status in ('BUSY', 'FINISHED'):
-        return '', 204
-
-    # Mark as BUSY and save user message
-    dlg.status = 'BUSY'
-    db.session.commit()
-    add_message(dlg, 'user', prompt)
-
-    # Capture token before leaving the request context
     jwt_token = session.get('jwt_token') or generate_jwt(user_id)
-
-    app.logger.info(f"Launching worker thread for dialogue {dlg.id}")
-    t = threading.Thread(target=execute_background_task, args=(app, dlg.id, prompt, user_id, dname, jwt_token))
+    t = threading.Thread(
+        target=execute_background_task,
+        args=(app, user_id, dname, prompt, jwt_token)
+    )
     t.daemon = True
     t.start()
-
     return '', 201
 
 
@@ -390,15 +346,10 @@ def api_dialogue_next(user_id, dname):
 def api_dialogue_end(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'user not found'}), 404
-    dlg = get_dialogue_by_name(user, dname)
-    if not dlg:
-        return jsonify({'error': 'dialogue not found'}), 404
-    dlg.status = 'FINISHED'
-    db.session.commit()
-    return jsonify({'status': 'finished'})
+    token = session.get('jwt_token') or generate_jwt(user_id)
+    base = _backend_rest_base()
+    data, status = _proxy_post(f"{base}/u/{user_id}/dialogue/{dname}/end", {}, token)
+    return jsonify(data), status
 
 
 @app.route('/api/chat/send', methods=['POST'])
