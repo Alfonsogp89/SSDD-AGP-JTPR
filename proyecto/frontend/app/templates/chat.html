@@ -189,11 +189,6 @@
       const d = await r.json();
       const msgs = d.dialogue.messages || [];
       if (msgs.length > lastCount) {
-        const lastMsg = msgs[msgs.length - 1];
-        // Si el mensaje es el de "Processing...", seguimos esperando
-        if (lastMsg.role === 'assistant' && lastMsg.content.startsWith('Processing in background:')) {
-          continue;
-        }
         await refreshMessages();
         return;
       }
