@@ -1,7 +1,8 @@
 from flask import Flask, render_template, send_from_directory, url_for, request, redirect, session, jsonify, Response
 from functools import wraps
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
+from prometheus_client import Counter
+from prometheus_flask_exporter import PrometheusMetrics
 import requests
 import os
 import jwt
@@ -17,6 +18,8 @@ from forms import LoginForm, RegisterForm
 from models_db import db, User, get_user_by_email, create_user
 
 app = Flask(__name__, static_url_path='')
+# Instrumentación automática de todas las rutas (latencias, códigos HTTP, etc.)
+PrometheusMetrics(app)
 # Métrica de negocio personalizada: número de peticiones al chat
 CHAT_REQUESTS = Counter('ssdd_chat_requests_total', 'Number of chat prompt requests')
 login_manager = LoginManager()
@@ -418,9 +421,7 @@ def api_chat_send():
 
 
 
-@app.route('/metrics')
-def metrics():
-    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+# /metrics es creado automáticamente por PrometheusMetrics(app)
 
 
 if __name__ == '__main__':
