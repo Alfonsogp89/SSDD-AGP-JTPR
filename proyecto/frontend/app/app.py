@@ -19,7 +19,8 @@ from models_db import db, User, get_user_by_email, create_user
 
 app = Flask(__name__, static_url_path='')
 # Instrumentación automática de todas las rutas (latencias, códigos HTTP, etc.)
-PrometheusMetrics(app)
+metrics = PrometheusMetrics(app)
+print("Prometheus metrics initialized on /metrics")
 # Métrica de negocio personalizada: número de peticiones al chat
 CHAT_REQUESTS = Counter('ssdd_chat_requests_total', 'Number of chat prompt requests')
 login_manager = LoginManager()
@@ -58,14 +59,32 @@ def register():
         if get_user_by_email(form.email.data):
             error = 'User already exists'
         else:
-            create_user(form.name.data, form.email.data, form.password.data)
-            return redirect(url_for('login'))
+            try:
+                base = _backend_rest_base()
+                resp = requests.post(f"{base}/u", 
+                                  json={'email': form.email.data, 
+                                        'password': form.password.data,
+                                        'name': form.name.data},
+                                  timeout=10)
+                if resp.status_code == 201:
+                    java_user = resp.json()
+                    user_id = int(java_user['id'])
+                    # Create in local SQLite with the same ID
+                    user = User(id=user_id, name=form.name.data, email=form.email.data)
+                    user.set_password(form.password.data)
+                    db.session.add(user)
+                    db.session.commit()
+                    return redirect(url_for('login'))
+                else:
+                    error = f"Backend error: {resp.text}"
+            except Exception as e:
+                error = f"Connection error to backend: {e}"
     return render_template('register.html', form=form, error=error)
 
 
-def generate_jwt(user_id, expire_minutes=30):
+def generate_jwt(email, expire_minutes=30):
     payload = {
-        'sub': str(user_id),
+        'sub': email,
         'iat': datetime.datetime.utcnow(),
         'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=expire_minutes)
     }
@@ -159,8 +178,8 @@ def login():
             error = 'Invalid Credentials. Please try again.'
         else:
             login_user(user, remember=form.remember_me.data)
-            # generate JWT and store in session
-            token = generate_jwt(user.id)
+            # generate JWT and store in session (backend Java expects email as subject)
+            token = generate_jwt(user.email)
             session['jwt_token'] = token
             # active users metric comes from DB when scraped
             return redirect(url_for('index'))
@@ -194,7 +213,7 @@ def load_user(user_id):
 @login_required
 def logs():
     if not session.get('jwt_token'):
-        session['jwt_token'] = generate_jwt(current_user.id)
+        session['jwt_token'] = generate_jwt(current_user.email)
     return render_template('logs.html', user_id=current_user.id, jwt_token=session.get('jwt_token'))
 
 
@@ -209,7 +228,7 @@ def stats():
 def chat():
     # Regenerar JWT si falta de la sesión (ej: tras hot-reload del servidor en debug)
     if not session.get('jwt_token'):
-        session['jwt_token'] = generate_jwt(current_user.id)
+        session['jwt_token'] = generate_jwt(current_user.email)
     return render_template('chat.html', user_id=current_user.id, jwt_token=session.get('jwt_token'))
 
 
@@ -258,7 +277,7 @@ def chat_send():
 def api_get_dialogue(user_id):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    token = session.get('jwt_token') or generate_jwt(user_id)
+    token = session.get('jwt_token') or generate_jwt(current_user.email)
     base = _backend_rest_base()
     data, status = _proxy_get(f"{base}/u/{user_id}/dialogue", token)
     return jsonify(data), status
@@ -269,7 +288,7 @@ def api_get_dialogue(user_id):
 def api_create_dialogue(user_id):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    token = session.get('jwt_token') or generate_jwt(user_id)
+    token = session.get('jwt_token') or generate_jwt(current_user.email)
     body = request.get_json(silent=True) or {}
     base = _backend_rest_base()
     data, status = _proxy_post(f"{base}/u/{user_id}/dialogue", body, token)
@@ -281,7 +300,7 @@ def api_create_dialogue(user_id):
 def api_get_one_dialogue(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    token = session.get('jwt_token') or generate_jwt(user_id)
+    token = session.get('jwt_token') or generate_jwt(current_user.email)
     base = _backend_rest_base()
     data, status = _proxy_get(f"{base}/u/{user_id}/dialogue/{dname}", token)
     return jsonify(data), status
@@ -292,7 +311,7 @@ def api_get_one_dialogue(user_id, dname):
 def api_delete_dialogue(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    token = session.get('jwt_token') or generate_jwt(user_id)
+    token = session.get('jwt_token') or generate_jwt(current_user.email)
     base = _backend_rest_base()
     data, status = _proxy_delete(f"{base}/u/{user_id}/dialogue/{dname}", token)
     return jsonify(data), status
@@ -331,7 +350,7 @@ def api_dialogue_next(user_id, dname):
 
     CHAT_REQUESTS.inc()
 
-    jwt_token = session.get('jwt_token') or generate_jwt(user_id)
+    jwt_token = session.get('jwt_token') or generate_jwt(current_user.email)
     t = threading.Thread(
         target=execute_background_task,
         args=(app, user_id, dname, prompt, jwt_token)
@@ -346,7 +365,7 @@ def api_dialogue_next(user_id, dname):
 def api_dialogue_end(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    token = session.get('jwt_token') or generate_jwt(user_id)
+    token = session.get('jwt_token') or generate_jwt(current_user.email)
     base = _backend_rest_base()
     data, status = _proxy_post(f"{base}/u/{user_id}/dialogue/{dname}/end", {}, token)
     return jsonify(data), status
