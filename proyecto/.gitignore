@@ -1,0 +1,11 @@
+.m2/
+__pycache__/
+*.pyc
+instance/
+*.db
+.venv/
+.idea/
+.vscode/
+bin/
+target/
+*.log

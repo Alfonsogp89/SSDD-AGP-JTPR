@@ -25,6 +25,7 @@ public class TestClient
         String dialogueName = "test-dialogue-" + System.currentTimeMillis();
 
         System.out.println("=== Iniciando Cliente de Prueba REST Java ===");
+        System.out.println("URL Base: " + getBaseURI());
 
         // 1. Registrar usuario
         System.out.println("\n[1] Registrando usuario: " + email);
@@ -87,6 +88,13 @@ public class TestClient
 
     private static URI getBaseURI()
     {
-        return UriBuilder.fromUri("http://localhost:8080/Service/").build();
+        String backendUrl = System.getProperty("BACKEND_URL");
+        if (backendUrl == null) {
+            backendUrl = System.getenv("BACKEND_URL");
+        }
+        if (backendUrl == null) {
+            backendUrl = "http://localhost:8080/Service/";
+        }
+        return UriBuilder.fromUri(backendUrl).build();
     }
 }

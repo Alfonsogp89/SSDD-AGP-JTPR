@@ -1,0 +1,11 @@
+graph TD
+    subgraph Base de Datos SSDD
+        users["Tabla: users<br/>- id (PK)<br/>- email<br/>- password_hash<br/>- name<br/>- token<br/>- visits"] 
+        
+        dialogues["Tabla: dialogues<br/>- id (PK)<br/>- user_id (FK)<br/>- name<br/>- status<br/>- created_at<br/>- updated_at"]
+        
+        messages["Tabla: messages<br/>- id (PK)<br/>- dialogue_id (FK)<br/>- role<br/>- content<br/>- timestamp"]
+        
+        users -- 1 a N --> dialogues
+        dialogues -- 1 a N --> messages
+    end

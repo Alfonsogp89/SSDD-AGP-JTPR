@@ -173,16 +173,22 @@
     }
   }
 
-  async function waitForNewMessage(timeout = 15000) {
+  async function waitForNewMessage(timeout = 35000) {
     const start = Date.now();
     let lastCount = 0;
-    try { const r0 = await fetch(`/api/u/${USER_ID}/dialogue/${encodeURIComponent(selectedDialogue)}`, { headers: getAuthHeaders() }); const d0 = await r0.json(); lastCount = d0.dialogue.messages.length; } catch (e) { }
+    try { 
+      const r0 = await fetch(`/api/u/${USER_ID}/dialogue/${encodeURIComponent(selectedDialogue)}`, { headers: getAuthHeaders() }); 
+      const d0 = await r0.json(); 
+      lastCount = d0.dialogue.messages.length; 
+    } catch (e) { }
+
     while (Date.now() - start < timeout) {
       await new Promise(r => setTimeout(r, 1000));
       const r = await fetch(`/api/u/${USER_ID}/dialogue/${encodeURIComponent(selectedDialogue)}`, { headers: getAuthHeaders() });
       if (!r.ok) continue;
       const d = await r.json();
-      if (d.dialogue.messages.length > lastCount) {
+      const msgs = d.dialogue.messages || [];
+      if (msgs.length > lastCount) {
         await refreshMessages();
         return;
       }
