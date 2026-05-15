@@ -12,6 +12,8 @@ services:
       - FLASK_DEBUG=true
       - PORT=5010
       - PROMPT_SERVICE_URL=http://backend-rest:8080/Service/chat
+      - FLASK_SECRET=dev-secret-change-me-ssdd-2526-ok
+      - DEBUG_METRICS=1
     volumes:
       - ./frontend:/ssdd-frontend
     depends_on:
@@ -40,6 +42,10 @@ services:
     ports:
       - 8080:8080
     env_file: sql.env
+    environment:
+      - FLASK_SECRET=dev-secret-change-me-ssdd-2526-ok
+      - GRPC_SERVER=backend-grpc
+      - GRPC_SERVER_PORT=50051
     depends_on:
       db-mysql:
         condition: service_healthy

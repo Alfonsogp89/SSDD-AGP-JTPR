@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 1997, 2020 Oracle and/or its affiliates. All rights reserved.
+
+    This program and the accompanying materials are made available under the
+    terms of the Eclipse Public License v. 2.0, which is available at
+    http://www.eclipse.org/legal/epl-2.0.
+
+    This Source Code may also be made available under the following Secondary
+    Licenses when the conditions for such availability set forth in the
+    Eclipse Public License v. 2.0 are satisfied: GNU General Public License,
+    version 2 with the GNU Classpath Exception, which is available at
+    https://www.gnu.org/software/classpath/license.html.
+
+    SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
+
+-->
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>jakarta.platform</groupId>
+  <artifactId>jakarta.jakartaee-bom</artifactId>
+  <version>11.0.0</version>
+  <packaging>pom</packaging>
+  <name>Jakarta EE API BOM</name>
+  <description>Jakarta EE API BOM</description>
+  <url>https://projects.eclipse.org/projects/ee4j/jakartaee-api-parent/jakarta.jakartaee-bom</url>
+  <inceptionYear>2017</inceptionYear>
+  <organization>
+    <name>Eclipse Foundation</name>
+    <url>https://www.eclipse.org</url>
+  </organization>
+  <licenses>
+    <license>
+      <name>Eclipse Public License v. 2.0</name>
+      <url>https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+    <license>
+      <name>GNU General Public License, version 2 with the GNU Classpath Exception</name>
+      <url>https://www.gnu.org/software/classpath/license.html</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>eclipseee4j</id>
+      <name>Eclipse EE4J Developers</name>
+      <email>ee4j-pmc@eclipse.org</email>
+      <organization>Eclipse Foundation</organization>
+    </developer>
+  </developers>
+  <mailingLists>
+    <mailingList>
+      <name>Community discussions</name>
+      <subscribe>https://accounts.eclipse.org/mailing-list/jakarta.ee-community</subscribe>
+      <unsubscribe>https://accounts.eclipse.org/mailing-list/jakarta.ee-community</unsubscribe>
+      <post>jakarta.ee-community@eclipse.org</post>
+      <archive>https://dev.eclipse.org/mhonarc/lists/jakarta.ee-community/</archive>
+      <otherArchives>
+        <otherArchive>http://dev.eclipse.org/mhonarc/lists/jakarta.ee-community/maillist.rss</otherArchive>
+      </otherArchives>
+    </mailingList>
+    <mailingList>
+      <name>PMC discussions</name>
+      <subscribe>https://accounts.eclipse.org/mailing-list/ee4j-pmc</subscribe>
+      <unsubscribe>https://accounts.eclipse.org/mailing-list/ee4j-pmc</unsubscribe>
+      <post>ee4j-pmc@eclipse.org</post>
+      <archive>https://dev.eclipse.org/mhonarc/lists/ee4j-pmc/</archive>
+      <otherArchives>
+        <otherArchive>http://dev.eclipse.org/mhonarc/lists/ee4j-pmc/maillist.rss</otherArchive>
+      </otherArchives>
+    </mailingList>
+  </mailingLists>
+  <scm>
+    <connection>scm:git:git@github.com:eclipse-ee4j/ee4j.git/jakartaee-api-parent/jakarta.jakartaee-bom</connection>
+    <developerConnection>scm:git:git@github.com:eclipse-ee4j/ee4j.git/jakartaee-api-parent/jakarta.jakartaee-bom</developerConnection>
+    <url>https://github.com/eclipse-ee4j/ee4j/jakartaee-api-parent/jakarta.jakartaee-bom</url>
+  </scm>
+  <issueManagement>
+    <system>GitHub Issues</system>
+    <url>https://github.com/eclipse-ee4j/ee4j/issues</url>
+  </issueManagement>
+  <distributionManagement>
+    <repository>
+      <id>ossrh</id>
+      <name>Sonatype Nexus Releases</name>
+      <url>https://jakarta.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <name>Sonatype Nexus Snapshots</name>
+      <url>https://jakarta.oss.sonatype.org/content/repositories/snapshots/</url>
+    </snapshotRepository>
+  </distributionManagement>
+  <properties>
+    <jakartaee.core-api.version>11.0.0</jakartaee.core-api.version>
+    <jakarta.ejb-api.version>4.0.1</jakarta.ejb-api.version>
+    <sonatypeOssDistMgmtNexusUrl>https://jakarta.oss.sonatype.org/</sonatypeOssDistMgmtNexusUrl>
+    <apidocs.bottom>&lt;p align="left">Copyright &amp;#169; 2018, 2024 Eclipse Foundation.&lt;br>Use is subject to
+&lt;a href="{@docRoot}/doc-files/speclicense.html" target="_top">license terms&lt;/a>.</apidocs.bottom>
+    <jakarta.batch-api.version>2.1.1</jakarta.batch-api.version>
+    <jakarta.data.version>1.0.1</jakarta.data.version>
+    <mojarra.version>4.1.2</mojarra.version>
+    <jakarta.faces-api.version>4.1.2</jakarta.faces-api.version>
+    <jakarta.annotation-api.version>3.0.0</jakarta.annotation-api.version>
+    <sonatypeOssDistMgmtStagingUrl>https://jakarta.oss.sonatype.org/content/repositories/staging/</sonatypeOssDistMgmtStagingUrl>
+    <apidocs.api.src>/home/jenkins/agent/workspace/1_jakartaee-api-stage/jakartaee-bom/target/api-sources</apidocs.api.src>
+    <sonatypeOssDistMgmtReleasesUrl>https://jakarta.oss.sonatype.org/service/local/staging/deploy/maven2/</sonatypeOssDistMgmtReleasesUrl>
+    <jakartaee.web-api.version>11.0.0</jakartaee.web-api.version>
+    <jakartaee.version>11.0.0</jakartaee.version>
+    <jakarta.json.bind-api.version>3.0.1</jakarta.json.bind-api.version>
+    <jakarta.resource-api.version>2.1.0</jakarta.resource-api.version>
+    <jakarta.servlet-api.version>6.1.0</jakarta.servlet-api.version>
+    <copyright-plugin.version>1.50</copyright-plugin.version>
+    <jakarta.authorization-api.version>3.0.0</jakarta.authorization-api.version>
+    <jakarta.persistence-api.version>3.2.0</jakarta.persistence-api.version>
+    <jakarta.servlet.jsp-api.version>4.0.0</jakarta.servlet.jsp-api.version>
+    <sonatypeOssDistMgmtSnapshotsUrl>https://jakarta.oss.sonatype.org/content/repositories/snapshots/</sonatypeOssDistMgmtSnapshotsUrl>
+    <apidocs.api.dist>/home/jenkins/agent/workspace/1_jakartaee-api-stage/jakartaee-bom/target/api-javadoc</apidocs.api.dist>
+    <jakarta.jms-api.version>3.1.0</jakarta.jms-api.version>
+    <jakarta.ws.rs-api.version>4.0.0</jakarta.ws.rs-api.version>
+    <jakarta.activation-api.version>2.1.3</jakarta.activation-api.version>
+    <project.build.outputTimestamp>2020-12-19T17:24:00Z</project.build.outputTimestamp>
+    <parent.deploy.skip>true</parent.deploy.skip>
+    <jakarta.inject.version>2.0.1</jakarta.inject.version>
+    <jakarta.enterprise.cdi-api.version>4.1.0</jakarta.enterprise.cdi-api.version>
+    <coreprofile.deploy.skip>false</coreprofile.deploy.skip>
+    <jakarta.validation-api.version>3.1.1</jakarta.validation-api.version>
+    <jakarta.security.enterprise-api.version>4.0.0</jakarta.security.enterprise-api.version>
+    <jakarta.enterprise.cdi-el-api.version>4.1.0</jakarta.enterprise.cdi-el-api.version>
+    <jakarta.enterprise.concurrent-api.version>3.1.1</jakarta.enterprise.concurrent-api.version>
+    <apidocs.required>*</apidocs.required>
+    <jakarta.el-api.version>6.0.1</jakarta.el-api.version>
+    <revision>11.0.0</revision>
+    <apidocs.windowtitle>Jakarta EE API BOM</apidocs.windowtitle>
+    <jakarta.mail-api.version>2.1.3</jakarta.mail-api.version>
+    <webprofile.deploy.skip>false</webprofile.deploy.skip>
+    <jakarta.transaction-api.version>2.0.1</jakarta.transaction-api.version>
+    <javadoc.options></javadoc.options>
+    <maven.compiler.release>17</maven.compiler.release>
+    <apidocs.modulepath></apidocs.modulepath>
+    <extra.excludes></extra.excludes>
+    <bom.deploy.skip>false</bom.deploy.skip>
+    <jakarta.json-api.version>2.1.3</jakarta.json-api.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <jakarta.authentication-api.version>3.1.0</jakarta.authentication-api.version>
+    <apidocs.header>&lt;br>Jakarta EE API BOM v11.0.0</apidocs.header>
+    <platform.deploy.skip>false</platform.deploy.skip>
+    <release.arguments></release.arguments>
+    <apidocs.api.tmp>/home/jenkins/agent/workspace/1_jakartaee-api-stage/jakartaee-bom/target/api-sources-tmp</apidocs.api.tmp>
+    <apidocs.doctitle>Jakarta EE API BOM</apidocs.doctitle>
+    <jakarta.websocket-api.version>2.2.0</jakarta.websocket-api.version>
+    <jakarta.servlet.jsp.jstl-api.version>3.0.2</jakarta.servlet.jsp.jstl-api.version>
+    <jakarta.interceptor-api.version>2.2.0</jakarta.interceptor-api.version>
+    <maven.deploy.skip>false</maven.deploy.skip>
+  </properties>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>jakarta.ws.rs</groupId>
+        <artifactId>jakarta.ws.rs-api</artifactId>
+        <version>${jakarta.ws.rs-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.json</groupId>
+        <artifactId>jakarta.json-api</artifactId>
+        <version>${jakarta.json-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.json.bind</groupId>
+        <artifactId>jakarta.json.bind-api</artifactId>
+        <version>${jakarta.json.bind-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.annotation</groupId>
+        <artifactId>jakarta.annotation-api</artifactId>
+        <version>${jakarta.annotation-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.interceptor</groupId>
+        <artifactId>jakarta.interceptor-api</artifactId>
+        <version>${jakarta.interceptor-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.enterprise</groupId>
+        <artifactId>jakarta.enterprise.cdi-api</artifactId>
+        <version>${jakarta.enterprise.cdi-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.inject</groupId>
+        <artifactId>jakarta.inject-api</artifactId>
+        <version>${jakarta.inject.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.enterprise</groupId>
+        <artifactId>jakarta.enterprise.lang-model</artifactId>
+        <version>${jakarta.enterprise.cdi-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.servlet</groupId>
+        <artifactId>jakarta.servlet-api</artifactId>
+        <version>${jakarta.servlet-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.servlet.jsp</groupId>
+        <artifactId>jakarta.servlet.jsp-api</artifactId>
+        <version>${jakarta.servlet.jsp-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.data</groupId>
+        <artifactId>jakarta.data-api</artifactId>
+        <version>${jakarta.data.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.enterprise</groupId>
+        <artifactId>jakarta.enterprise.cdi-el-api</artifactId>
+        <version>${jakarta.enterprise.cdi-el-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.el</groupId>
+        <artifactId>jakarta.el-api</artifactId>
+        <version>${jakarta.el-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.servlet.jsp.jstl</groupId>
+        <artifactId>jakarta.servlet.jsp.jstl-api</artifactId>
+        <version>${jakarta.servlet.jsp.jstl-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.faces</groupId>
+        <artifactId>jakarta.faces-api</artifactId>
+        <version>${jakarta.faces-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.websocket</groupId>
+        <artifactId>jakarta.websocket-api</artifactId>
+        <version>${jakarta.websocket-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.websocket</groupId>
+        <artifactId>jakarta.websocket-client-api</artifactId>
+        <version>${jakarta.websocket-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.ejb</groupId>
+        <artifactId>jakarta.ejb-api</artifactId>
+        <version>${jakarta.ejb-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.transaction</groupId>
+        <artifactId>jakarta.transaction-api</artifactId>
+        <version>${jakarta.transaction-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.persistence</groupId>
+        <artifactId>jakarta.persistence-api</artifactId>
+        <version>${jakarta.persistence-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.validation</groupId>
+        <artifactId>jakarta.validation-api</artifactId>
+        <version>${jakarta.validation-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.authentication</groupId>
+        <artifactId>jakarta.authentication-api</artifactId>
+        <version>${jakarta.authentication-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.security.enterprise</groupId>
+        <artifactId>jakarta.security.enterprise-api</artifactId>
+        <version>${jakarta.security.enterprise-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.enterprise.concurrent</groupId>
+        <artifactId>jakarta.enterprise.concurrent-api</artifactId>
+        <version>${jakarta.enterprise.concurrent-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.jms</groupId>
+        <artifactId>jakarta.jms-api</artifactId>
+        <version>${jakarta.jms-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.activation</groupId>
+        <artifactId>jakarta.activation-api</artifactId>
+        <version>${jakarta.activation-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.mail</groupId>
+        <artifactId>jakarta.mail-api</artifactId>
+        <version>${jakarta.mail-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.resource</groupId>
+        <artifactId>jakarta.resource-api</artifactId>
+        <version>${jakarta.resource-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.authorization</groupId>
+        <artifactId>jakarta.authorization-api</artifactId>
+        <version>${jakarta.authorization-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.batch</groupId>
+        <artifactId>jakarta.batch-api</artifactId>
+        <version>${jakarta.batch-api.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>

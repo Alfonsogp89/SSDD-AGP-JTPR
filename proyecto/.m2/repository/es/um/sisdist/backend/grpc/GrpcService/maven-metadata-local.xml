@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>es.um.sisdist.backend.grpc</groupId>
+  <artifactId>GrpcService</artifactId>
+  <versioning>
+    <versions>
+      <version>0.0.1-SNAPSHOT</version>
+    </versions>
+    <lastUpdated>20260507103132</lastUpdated>
+  </versioning>
+</metadata>
