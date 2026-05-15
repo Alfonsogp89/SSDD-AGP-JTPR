@@ -201,10 +201,10 @@ class Test03ChatFlow(unittest.TestCase):
         driver.find_element(By.ID, "create-dialogue").click()
         time.sleep(1)
 
-        # Seleccionar el diálogo (click en el primer item de la lista)
-        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#dialogues .list-group-item")))
-        first_dialogue = driver.find_element(By.CSS_SELECTOR, "#dialogues .list-group-item")
-        first_dialogue.click()
+        # Seleccionar el diálogo (click en el span interior que tiene el handler)
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#dialogues .list-group-item span")))
+        first_dialogue_span = driver.find_element(By.CSS_SELECTOR, "#dialogues .list-group-item span")
+        first_dialogue_span.click()
         time.sleep(0.5)
 
         # Escribir y enviar el prompt
@@ -224,7 +224,8 @@ class Test03ChatFlow(unittest.TestCase):
             time.sleep(3)
             messages_box = driver.find_element(By.ID, "messages")
             current_text = messages_box.text
-            print(f"[E2E] Texto actual en el chat: {current_text.replace('\n', ' | ')[:150]}...")
+            current_text_preview = current_text.replace('\n', ' | ')[:150]
+            print(f"[E2E] Texto actual en el chat: {current_text_preview}...")
             if "assistant:" in current_text:
                 print("[E2E] ¡Respuesta detectada!")
                 break
