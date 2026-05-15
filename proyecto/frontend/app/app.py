@@ -9,8 +9,6 @@ import jwt
 import threading
 import time
 # Dialogue/Message ya no se almacenan en SQLite; el backend REST Java es la fuente de verdad
-import datetime
-
 # Login/forms
 from forms import LoginForm, RegisterForm
 
@@ -61,15 +59,14 @@ def register():
         else:
             try:
                 base = _backend_rest_base()
-                resp = requests.post(f"{base}/u", 
-                                  json={'email': form.email.data, 
-                                        'password': form.password.data,
-                                        'name': form.name.data},
-                                  timeout=10)
+                resp = requests.post(f"{base}/u",
+                                     json={'email': form.email.data,
+                                           'password': form.password.data,
+                                           'name': form.name.data},
+                                     timeout=10)
                 if resp.status_code == 201:
                     java_user = resp.json()
                     user_id = int(java_user['id'])
-                    # Create in local SQLite with the same ID
                     user = User(id=user_id, name=form.name.data, email=form.email.data)
                     user.set_password(form.password.data)
                     db.session.add(user)
@@ -80,16 +77,6 @@ def register():
             except Exception as e:
                 error = f"Connection error to backend: {e}"
     return render_template('register.html', form=form, error=error)
-
-
-def generate_jwt(email, expire_minutes=30):
-    payload = {
-        'sub': email,
-        'iat': datetime.datetime.utcnow(),
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=expire_minutes)
-    }
-    token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
-    return token
 
 
 def get_auth_token_from_request():
@@ -123,12 +110,11 @@ def get_auth_headers():
         headers['Authorization'] = f'Bearer {token}'
     return headers
 
-def decode_jwt(token):
-    return jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
 
 def _backend_rest_base():
     url = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8080/Service/chat')
     return url.rsplit('/chat', 1)[0]
+
 
 def _proxy_get(url, token):
     """Proxy GET al backend REST Java y devuelve un Response de Flask."""
@@ -173,15 +159,35 @@ def login():
     error = None
     form = LoginForm(None if request.method != 'POST' else request.form)
     if request.method == "POST" and form.validate():
-        user = get_user_by_email(form.email.data)
-        if not user or not user.check_password(form.password.data):
+        try:
+            base = _backend_rest_base()
+            resp = requests.post(f"{base}/checkLogin",
+                                 json={'email': form.email.data, 'password': form.password.data},
+                                 timeout=10)
+        except Exception as e:
+            error = f"Connection error to backend: {e}"
+            return render_template('login.html', form=form, error=error)
+
+        if resp.status_code == 403:
             error = 'Invalid Credentials. Please try again.'
+        elif resp.status_code != 200:
+            error = f'Backend error: {resp.status_code}'
         else:
+            data = resp.json()
+            jwt_token = data.get('jwtToken')
+            user_info = data.get('user', {})
+
+            user = get_user_by_email(form.email.data)
+            if not user:
+                user = User(id=int(user_info.get('id', 0)),
+                            name=user_info.get('name', ''),
+                            email=form.email.data)
+                user.set_password(form.password.data)
+                db.session.add(user)
+                db.session.commit()
+
             login_user(user, remember=form.remember_me.data)
-            # generate JWT and store in session (backend Java expects email as subject)
-            token = generate_jwt(user.email)
-            session['jwt_token'] = token
-            # active users metric comes from DB when scraped
+            session['jwt_token'] = jwt_token
             return redirect(url_for('index'))
 
     return render_template('login.html', form=form, error=error)
@@ -213,7 +219,7 @@ def load_user(user_id):
 @login_required
 def logs():
     if not session.get('jwt_token'):
-        session['jwt_token'] = generate_jwt(current_user.email)
+        return redirect(url_for('login'))
     return render_template('logs.html', user_id=current_user.id, jwt_token=session.get('jwt_token'))
 
 
@@ -226,9 +232,8 @@ def stats():
 @app.route('/chat')
 @login_required
 def chat():
-    # Regenerar JWT si falta de la sesión (ej: tras hot-reload del servidor en debug)
     if not session.get('jwt_token'):
-        session['jwt_token'] = generate_jwt(current_user.email)
+        return redirect(url_for('login'))
     return render_template('chat.html', user_id=current_user.id, jwt_token=session.get('jwt_token'))
 
 
@@ -249,7 +254,6 @@ def chat_send():
     except requests.RequestException as e:
         return render_template('chat.html', error=str(e), prompt=prompt)
 
-    # Basic handling of common responses
     if resp.status_code in (200, 201):
         try:
             data = resp.json()
@@ -277,7 +281,7 @@ def chat_send():
 def api_get_dialogue(user_id):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    token = session.get('jwt_token') or generate_jwt(current_user.email)
+    token = session.get('jwt_token')
     base = _backend_rest_base()
     data, status = _proxy_get(f"{base}/u/{user_id}/dialogue", token)
     return jsonify(data), status
@@ -288,7 +292,7 @@ def api_get_dialogue(user_id):
 def api_create_dialogue(user_id):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    token = session.get('jwt_token') or generate_jwt(current_user.email)
+    token = session.get('jwt_token')
     body = request.get_json(silent=True) or {}
     base = _backend_rest_base()
     data, status = _proxy_post(f"{base}/u/{user_id}/dialogue", body, token)
@@ -300,7 +304,7 @@ def api_create_dialogue(user_id):
 def api_get_one_dialogue(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    token = session.get('jwt_token') or generate_jwt(current_user.email)
+    token = session.get('jwt_token')
     base = _backend_rest_base()
     data, status = _proxy_get(f"{base}/u/{user_id}/dialogue/{dname}", token)
     return jsonify(data), status
@@ -311,7 +315,7 @@ def api_get_one_dialogue(user_id, dname):
 def api_delete_dialogue(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    token = session.get('jwt_token') or generate_jwt(current_user.email)
+    token = session.get('jwt_token')
     base = _backend_rest_base()
     data, status = _proxy_delete(f"{base}/u/{user_id}/dialogue/{dname}", token)
     return jsonify(data), status
@@ -350,7 +354,7 @@ def api_dialogue_next(user_id, dname):
 
     CHAT_REQUESTS.inc()
 
-    jwt_token = session.get('jwt_token') or generate_jwt(current_user.email)
+    jwt_token = session.get('jwt_token')
     t = threading.Thread(
         target=execute_background_task,
         args=(app, user_id, dname, prompt, jwt_token)
@@ -365,7 +369,7 @@ def api_dialogue_next(user_id, dname):
 def api_dialogue_end(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    token = session.get('jwt_token') or generate_jwt(current_user.email)
+    token = session.get('jwt_token')
     base = _backend_rest_base()
     data, status = _proxy_post(f"{base}/u/{user_id}/dialogue/{dname}/end", {}, token)
     return jsonify(data), status
@@ -390,12 +394,10 @@ def api_chat_send():
     return Response(resp.content, status=resp.status_code, content_type=content_type)
 
 
-
 # /metrics es creado automáticamente por PrometheusMetrics(app)
 
 
 if __name__ == '__main__':
-    # Ensure DB tables exist
     with app.app_context():
         db.create_all()
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5010)))
