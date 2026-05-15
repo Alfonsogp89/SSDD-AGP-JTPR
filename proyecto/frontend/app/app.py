@@ -1,14 +1,14 @@
 from flask import Flask, render_template, send_from_directory, url_for, request, redirect, session, jsonify, Response
 from functools import wraps
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
+from prometheus_client import Counter
 from prometheus_flask_exporter import PrometheusMetrics
 import requests
 import os
 import jwt
 import threading
-from models_db import Dialogue, Message, create_dialogue, get_dialogue_by_name, add_message
-import datetime
-
+import time
+# Dialogue/Message ya no se almacenan en SQLite; el backend REST Java es la fuente de verdad
 # Login/forms
 from forms import LoginForm, RegisterForm
 
@@ -16,7 +16,11 @@ from forms import LoginForm, RegisterForm
 from models_db import db, User, get_user_by_email, create_user
 
 app = Flask(__name__, static_url_path='')
-PrometheusMetrics(app)
+# Instrumentación automática de todas las rutas (latencias, códigos HTTP, etc.)
+metrics = PrometheusMetrics(app)
+print("Prometheus metrics initialized on /metrics")
+# Métrica de negocio personalizada: número de peticiones al chat
+CHAT_REQUESTS = Counter('ssdd_chat_requests_total', 'Number of chat prompt requests')
 login_manager = LoginManager()
 login_manager.login_view = 'login'
 login_manager.init_app(app)  # Para mantener la sesión
@@ -53,19 +57,26 @@ def register():
         if get_user_by_email(form.email.data):
             error = 'User already exists'
         else:
-            create_user(form.name.data, form.email.data, form.password.data)
-            return redirect(url_for('login'))
+            try:
+                base = _backend_rest_base()
+                resp = requests.post(f"{base}/u",
+                                     json={'email': form.email.data,
+                                           'password': form.password.data,
+                                           'name': form.name.data},
+                                     timeout=10)
+                if resp.status_code == 201:
+                    java_user = resp.json()
+                    user_id = int(java_user['id'])
+                    user = User(id=user_id, name=form.name.data, email=form.email.data)
+                    user.set_password(form.password.data)
+                    db.session.add(user)
+                    db.session.commit()
+                    return redirect(url_for('login'))
+                else:
+                    error = f"Backend error: {resp.text}"
+            except Exception as e:
+                error = f"Connection error to backend: {e}"
     return render_template('register.html', form=form, error=error)
-
-
-def generate_jwt(user_id, expire_minutes=30):
-    payload = {
-        'sub': int(user_id),
-        'iat': datetime.datetime.utcnow(),
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=expire_minutes)
-    }
-    token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
-    return token
 
 
 def get_auth_token_from_request():
@@ -99,28 +110,46 @@ def get_auth_headers():
         headers['Authorization'] = f'Bearer {token}'
     return headers
 
-def decode_jwt(token):
-    return jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
 
 def _backend_rest_base():
     url = os.environ.get('PROMPT_SERVICE_URL', 'http://localhost:8080/Service/chat')
     return url.rsplit('/chat', 1)[0]
 
-def serialize_message(m):
-    return {
-        'role': m.role,
-        'content': m.content,
-        'timestamp': m.timestamp.isoformat() if m.timestamp else None
-    }
 
-def serialize_dialogue(d):
-    return {
-        'id': d.id,
-        'name': d.name,
-        'status': d.status,
-        'created_at': d.created_at.isoformat() if d.created_at else None,
-        'messages': [serialize_message(m) for m in d.messages]
-    }
+def _proxy_get(url, token):
+    """Proxy GET al backend REST Java y devuelve un Response de Flask."""
+    try:
+        r = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=10)
+        return r.json(), r.status_code
+    except Exception as ex:
+        return {'error': str(ex)}, 502
+
+
+def _proxy_post(url, body, token):
+    """Proxy POST al backend REST Java y devuelve (json, status_code)."""
+    try:
+        r = requests.post(url, json=body,
+                          headers={'Content-Type': 'application/json',
+                                   'Authorization': f'Bearer {token}'},
+                          timeout=120)
+        try:
+            return r.json(), r.status_code
+        except Exception:
+            return r.text, r.status_code
+    except Exception as ex:
+        return {'error': str(ex)}, 502
+
+
+def _proxy_delete(url, token):
+    """Proxy DELETE al backend REST Java."""
+    try:
+        r = requests.delete(url, headers={'Authorization': f'Bearer {token}'}, timeout=10)
+        try:
+            return r.json(), r.status_code
+        except Exception:
+            return {}, r.status_code
+    except Exception as ex:
+        return {'error': str(ex)}, 502
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -130,15 +159,35 @@ def login():
     error = None
     form = LoginForm(None if request.method != 'POST' else request.form)
     if request.method == "POST" and form.validate():
-        user = get_user_by_email(form.email.data)
-        if not user or not user.check_password(form.password.data):
+        try:
+            base = _backend_rest_base()
+            resp = requests.post(f"{base}/checkLogin",
+                                 json={'email': form.email.data, 'password': form.password.data},
+                                 timeout=10)
+        except Exception as e:
+            error = f"Connection error to backend: {e}"
+            return render_template('login.html', form=form, error=error)
+
+        if resp.status_code == 403:
             error = 'Invalid Credentials. Please try again.'
+        elif resp.status_code != 200:
+            error = f'Backend error: {resp.status_code}'
         else:
+            data = resp.json()
+            jwt_token = data.get('jwtToken')
+            user_info = data.get('user', {})
+
+            user = get_user_by_email(form.email.data)
+            if not user:
+                user = User(id=int(user_info.get('id', 0)),
+                            name=user_info.get('name', ''),
+                            email=form.email.data)
+                user.set_password(form.password.data)
+                db.session.add(user)
+                db.session.commit()
+
             login_user(user, remember=form.remember_me.data)
-            # generate JWT and store in session
-            token = generate_jwt(user.id)
-            session['jwt_token'] = token
-            # active users metric comes from DB when scraped
+            session['jwt_token'] = jwt_token
             return redirect(url_for('index'))
 
     return render_template('login.html', form=form, error=error)
@@ -170,7 +219,7 @@ def load_user(user_id):
 @login_required
 def logs():
     if not session.get('jwt_token'):
-        session['jwt_token'] = generate_jwt(current_user.id)
+        return redirect(url_for('login'))
     return render_template('logs.html', user_id=current_user.id, jwt_token=session.get('jwt_token'))
 
 
@@ -183,9 +232,8 @@ def stats():
 @app.route('/chat')
 @login_required
 def chat():
-    # Regenerar JWT si falta de la sesión (ej: tras hot-reload del servidor en debug)
     if not session.get('jwt_token'):
-        session['jwt_token'] = generate_jwt(current_user.id)
+        return redirect(url_for('login'))
     return render_template('chat.html', user_id=current_user.id, jwt_token=session.get('jwt_token'))
 
 
@@ -206,7 +254,6 @@ def chat_send():
     except requests.RequestException as e:
         return render_template('chat.html', error=str(e), prompt=prompt)
 
-    # Basic handling of common responses
     if resp.status_code in (200, 201):
         try:
             data = resp.json()
@@ -224,14 +271,20 @@ def chat_send():
 # --- REST API endpoints (JSON) ---
 
 
+# ---------------------------------------------------------------------------
+# API /api/u/<id>/dialogue/... — proxies directos al backend REST Java.
+# El backend Java (MySQL) es la única fuente de verdad para diálogos y mensajes.
+# ---------------------------------------------------------------------------
+
 @app.route('/api/u/<int:user_id>/dialogue', methods=['GET'])
 @login_required
 def api_get_dialogue(user_id):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    dialogues = Dialogue.query.filter_by(user_id=user_id).all()
-    return jsonify({'dialogues': [serialize_dialogue(d) for d in dialogues]})
-
+    token = session.get('jwt_token')
+    base = _backend_rest_base()
+    data, status = _proxy_get(f"{base}/u/{user_id}/dialogue", token)
+    return jsonify(data), status
 
 
 @app.route('/api/u/<int:user_id>/dialogue', methods=['POST'])
@@ -239,20 +292,11 @@ def api_get_dialogue(user_id):
 def api_create_dialogue(user_id):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'user not found'}), 404
-    data = request.get_json(silent=True) or {}
-    name = data.get('name') or f'dialogue-{user_id}'
-    dlg = create_dialogue(user, name)
-    # Mirror creation in MySQL (source of truth for persistence)
-    try:
-        base = _backend_rest_base()
-        requests.post(f"{base}/u/{user_id}/dialogue", json={'name': name},
-                      headers=get_auth_headers(), timeout=5)
-    except Exception:
-        pass
-    return jsonify({'dialogue': serialize_dialogue(dlg)}), 201
+    token = session.get('jwt_token')
+    body = request.get_json(silent=True) or {}
+    base = _backend_rest_base()
+    data, status = _proxy_post(f"{base}/u/{user_id}/dialogue", body, token)
+    return jsonify(data), status
 
 
 @app.route('/api/u/<int:user_id>/dialogue/<string:dname>', methods=['GET'])
@@ -260,13 +304,10 @@ def api_create_dialogue(user_id):
 def api_get_one_dialogue(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'user not found'}), 404
-    dlg = get_dialogue_by_name(user, dname)
-    if not dlg:
-        return jsonify({'error': 'dialogue not found'}), 404
-    return jsonify({'dialogue': serialize_dialogue(dlg)})
+    token = session.get('jwt_token')
+    base = _backend_rest_base()
+    data, status = _proxy_get(f"{base}/u/{user_id}/dialogue/{dname}", token)
+    return jsonify(data), status
 
 
 @app.route('/api/u/<int:user_id>/dialogue/<string:dname>', methods=['DELETE'])
@@ -274,25 +315,31 @@ def api_get_one_dialogue(user_id, dname):
 def api_delete_dialogue(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'user not found'}), 404
-        
-    # Eliminar de la BD local de SQLite
-    dlg = get_dialogue_by_name(user, dname)
-    if dlg:
-        Message.query.filter_by(dialogue_id=dlg.id).delete()
-        db.session.delete(dlg)
-        db.session.commit()
-        
-    # Eliminar también del backend REST Java (MySQL)
-    try:
-        base = _backend_rest_base()
-        requests.delete(f"{base}/u/{user_id}/dialogue/{dname}", timeout=10)
-    except Exception:
-        pass
+    token = session.get('jwt_token')
+    base = _backend_rest_base()
+    data, status = _proxy_delete(f"{base}/u/{user_id}/dialogue/{dname}", token)
+    return jsonify(data), status
 
-    return jsonify({'status': 'deleted'})
+
+def execute_background_task(app, uid, dname_str, prompt_text, token):
+    """Llama al backend REST Java en un hilo separado.
+    Java gestiona BUSY→READY y guarda mensajes en MySQL.
+    El frontend lee el estado vía proxy (no guarda nada en SQLite).
+    """
+    try:
+        with app.app_context():
+            base = _backend_rest_base()
+        app.logger.info(f"[WORKER] POST {base}/u/{uid}/dialogue/{dname_str}/next")
+        requests.post(
+            f"{base}/u/{uid}/dialogue/{dname_str}/next",
+            json={'prompt': prompt_text},
+            headers={'Content-Type': 'application/json',
+                     'Authorization': f'Bearer {token}'},
+            timeout=120
+        )
+        app.logger.info(f"[WORKER] Backend respondió OK para user={uid} dialogue={dname_str}")
+    except Exception as ex:
+        app.logger.error(f"[WORKER] Error contactando backend: {ex}")
 
 
 @app.route('/api/u/<int:user_id>/dialogue/<string:dname>/next', methods=['POST'])
@@ -300,59 +347,20 @@ def api_delete_dialogue(user_id, dname):
 def api_dialogue_next(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'user not found'}), 404
-    dlg = get_dialogue_by_name(user, dname)
-    if not dlg:
-        return jsonify({'error': 'dialogue not found'}), 404
-
     data = request.get_json(silent=True) or {}
     prompt = data.get('prompt')
     if not prompt:
         return jsonify({'error': 'missing prompt'}), 400
 
-    if dlg.status in ('BUSY', 'FINISHED'):
-        return '', 204
+    CHAT_REQUESTS.inc()
 
-    # Mark as BUSY and save user message
-    dlg.status = 'BUSY'
-    db.session.commit()
-    add_message(dlg, 'user', prompt)
-
-    def worker(dialogue_id, prompt_text, uid, dname_str):
-        content = None
-        try:
-            # Call the dialogue endpoint so MySQL becomes the source of truth
-            base = _backend_rest_base()
-            resp = requests.post(
-                f"{base}/u/{uid}/dialogue/{dname_str}/next",
-                json={'prompt': prompt_text},
-                headers={'Content-Type': 'application/json'},
-                timeout=120
-            )
-            if resp.status_code in (200, 201):
-                try:
-                    rdata = resp.json()
-                    content = rdata.get('message') or rdata.get('answer') or rdata.get('response') or resp.text
-                except Exception:
-                    content = resp.text
-            else:
-                content = f'Upstream error {resp.status_code}: {resp.text}'
-        except Exception as ex:
-            content = f'Error contacting backend: {ex}'
-        # Mirror assistant message to SQLite for UI display
-        with app.app_context():
-            dlg2 = Dialogue.query.get(dialogue_id)
-            if dlg2:
-                add_message(dlg2, 'assistant', content)
-                dlg2.status = 'READY'
-                db.session.commit()
-
-    t = threading.Thread(target=worker, args=(dlg.id, prompt, user_id, dname))
+    jwt_token = session.get('jwt_token')
+    t = threading.Thread(
+        target=execute_background_task,
+        args=(app, user_id, dname, prompt, jwt_token)
+    )
     t.daemon = True
     t.start()
-
     return '', 201
 
 
@@ -361,15 +369,10 @@ def api_dialogue_next(user_id, dname):
 def api_dialogue_end(user_id, dname):
     if current_user.id != user_id:
         return jsonify({'error': 'forbidden'}), 403
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'user not found'}), 404
-    dlg = get_dialogue_by_name(user, dname)
-    if not dlg:
-        return jsonify({'error': 'dialogue not found'}), 404
-    dlg.status = 'FINISHED'
-    db.session.commit()
-    return jsonify({'status': 'finished'})
+    token = session.get('jwt_token')
+    base = _backend_rest_base()
+    data, status = _proxy_post(f"{base}/u/{user_id}/dialogue/{dname}/end", {}, token)
+    return jsonify(data), status
 
 
 @app.route('/api/chat/send', methods=['POST'])
@@ -391,10 +394,10 @@ def api_chat_send():
     return Response(resp.content, status=resp.status_code, content_type=content_type)
 
 
+# /metrics es creado automáticamente por PrometheusMetrics(app)
 
 
 if __name__ == '__main__':
-    # Ensure DB tables exist
     with app.app_context():
         db.create_all()
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5010)))
