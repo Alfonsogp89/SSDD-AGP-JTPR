@@ -239,15 +239,18 @@ public class DialogueEndpoint
             if (prompt.isEmpty())
                 return Response.status(400).entity("{\"error\":\"prompt is required\"}").build();
 
+            // Transición atómica READY→BUSY: elimina la race condition TOCTOU.
+            // Si el UPDATE afecta 0 filas, el diálogo está BUSY, FINISHED o no existe.
+            int rows = tryAcquireBusy(userId, dialogueName);
+            if (rows == 0)
+            {
+                if (!dialogueExists(userId, dialogueName))
+                    return Response.status(404).entity("{\"error\":\"Dialogue not found\"}").build();
+                return Response.status(204).build(); // BUSY o FINISHED → spec: 204 No Content
+            }
+
             DialogueDTO dialogue = getDialogueFromDB(userId, dialogueName);
-            if (dialogue == null)
-                return Response.status(404).entity("{\"error\":\"Dialogue not found\"}").build();
-
-            if ("BUSY".equals(dialogue.status))
-                return Response.status(409).entity("{\"error\":\"Dialogue is busy\"}").build();
-
             addMessageToDB(dialogue.id, "user", prompt);
-            updateDialogueStatus(dialogue.id, "BUSY");
 
             String answer;
             try
@@ -374,6 +377,31 @@ public class DialogueEndpoint
             pstmt.setString(1, status);
             pstmt.setInt(2, dialogueId);
             pstmt.executeUpdate();
+        }
+    }
+
+    private int tryAcquireBusy(int userId, String dialogueName) throws SQLException
+    {
+        String sql = "UPDATE dialogues SET status='BUSY' WHERE user_id=? AND name=? AND status='READY'";
+        try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql))
+        {
+            pstmt.setInt(1, userId);
+            pstmt.setString(2, dialogueName);
+            return pstmt.executeUpdate();
+        }
+    }
+
+    private boolean dialogueExists(int userId, String dialogueName) throws SQLException
+    {
+        String sql = "SELECT 1 FROM dialogues WHERE user_id=? AND name=?";
+        try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql))
+        {
+            pstmt.setInt(1, userId);
+            pstmt.setString(2, dialogueName);
+            try (ResultSet rs = pstmt.executeQuery())
+            {
+                return rs.next();
+            }
         }
     }
 
