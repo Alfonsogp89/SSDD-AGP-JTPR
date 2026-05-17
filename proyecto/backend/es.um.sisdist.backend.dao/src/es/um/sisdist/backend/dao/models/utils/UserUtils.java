@@ -16,7 +16,7 @@ public class UserUtils
         return sb.toString();
     }
 
-    public static String md5pass(String clearpass)
+    public static String hashPassword(String clearpass)
     {
         try
         {
