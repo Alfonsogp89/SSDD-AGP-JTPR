@@ -115,7 +115,7 @@ public class User
     public User(String email, String password_hash, String name, String tOKEN, int visits)
     {
         this(email, email, password_hash, name, tOKEN, visits);
-        this.id = UserUtils.md5pass(email);
+        this.id = UserUtils.hashPassword(email);
     }
 
     public User(String id, String email, String password_hash, String name, String tOKEN, int visits)

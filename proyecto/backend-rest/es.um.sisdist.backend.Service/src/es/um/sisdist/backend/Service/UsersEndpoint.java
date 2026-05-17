@@ -44,7 +44,7 @@ public class UsersEndpoint
 
             // ID numérico como string para compatibilidad con DialogueEndpoint (int path param)
             String userId = String.valueOf(100000 + new Random().nextInt(900000));
-            String hashedPass = UserUtils.md5pass(password);
+            String hashedPass = UserUtils.hashPassword(password);
 
             String sql = "INSERT INTO users (id, email, password_hash, name, token, visits) VALUES (?, ?, ?, ?, '', 0)";
             try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql))

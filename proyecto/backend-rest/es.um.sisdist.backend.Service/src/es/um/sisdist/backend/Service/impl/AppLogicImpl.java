@@ -120,7 +120,7 @@ public class AppLogicImpl
 
         if (u.isPresent())
         {
-            String hashed_pass = UserUtils.md5pass(pass);
+            String hashed_pass = UserUtils.hashPassword(pass);
             if (0 == hashed_pass.compareTo(u.get().getPassword_hash()))
                 return u;
         }
